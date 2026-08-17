@@ -29,10 +29,23 @@ const reasoning = {
   defaultEffort: 'high',
 }
 
+type ModelSelectProps = ComponentProps<typeof ModelSelect>
+type InputSnapshot = Parameters<ModelSelectProps['useInput']>[0] extends (input: infer T) => unknown ? T : never
+
+function inputHook(imageIds: InputSnapshot['imageIds'] = []): ModelSelectProps['useInput'] {
+  const input = {
+    draft: '', imageIds, draftRev: 0, phase: 'plain', occurrences: [], queue: [],
+  } satisfies InputSnapshot
+  return selector => selector(input)
+}
+
+const noImages = inputHook()
+
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
     current: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
     routable: true,
+    requiresImageInput: false,
     groups: [{
       id: 'deepseek-official',
       name: 'DeepSeek',
@@ -58,6 +71,7 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available
       directory={directory}
+      useInput={noImages}
       load={vi.fn()}
       select={select}
       t={t}
@@ -99,6 +113,7 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available
       directory={directory}
+      useInput={noImages}
       load={vi.fn()}
       select={vi.fn().mockResolvedValue(true)}
       t={t}
@@ -121,6 +136,7 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available
       directory={directory}
+      useInput={noImages}
       load={vi.fn()}
       select={select}
       t={t}
@@ -136,7 +152,7 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('announces a rejected selection as a transient toast and keeps the in-menu strip for loads', async () => {
-    const groups = [{
+    const groups: ModelDirectoryState['groups'] = [{
       id: 'deepseek-official',
       name: 'DeepSeek',
       models: [
@@ -153,6 +169,7 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available
       directory={directory}
+      useInput={noImages}
       load={vi.fn()}
       select={select}
       t={t}
@@ -173,6 +190,7 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available={false}
       directory={createSnapshotStore(state())}
+      useInput={noImages}
       load={load}
       select={vi.fn().mockResolvedValue(false)}
       t={t}
@@ -180,5 +198,45 @@ describe('ModelSelect reasoning effort', () => {
 
     expect(screen.queryByRole('button')).toBeNull()
     expect(load).not.toHaveBeenCalled()
+  })
+
+  it('opens the model list for an image draft and disables only explicit text-only models', async () => {
+    const groups: ModelDirectoryState['groups'] = [{
+      id: 'codebuddy',
+      name: 'CodeBuddy',
+      models: [
+        { id: 'plain', name: 'Plain', inputModalities: ['text'] },
+        { id: 'vision', name: 'Vision', inputModalities: ['text', 'image'] },
+        { id: 'unknown', name: 'Unknown' },
+      ],
+    }]
+    const directory = createSnapshotStore<ModelDirectoryState>(state({
+      current: { provider: 'codebuddy', model: 'plain' },
+      groups,
+    }))
+    const select = vi.fn().mockResolvedValue(true)
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      useInput={inputHook(['draft-image' as never])}
+      load={vi.fn()}
+      select={select}
+      t={t}
+    />)
+
+    expect(await screen.findByText('请选择支持图片的模型继续')).toBeTruthy()
+    const plain = screen.getByRole('menuitemradio', { name: /Plain/ }) as HTMLButtonElement
+    const vision = screen.getByRole('menuitemradio', { name: /Vision/ }) as HTMLButtonElement
+    const unknown = screen.getByRole('menuitemradio', { name: 'Unknown' }) as HTMLButtonElement
+    expect(plain.disabled).toBe(true)
+    expect(vision.disabled).toBe(false)
+    expect(vision.textContent).toContain('支持图片')
+    expect(unknown.disabled).toBe(false)
+
+    fireEvent.click(vision)
+    await waitFor(() => {
+      expect(select).toHaveBeenCalledWith({ provider: 'codebuddy', model: 'vision' })
+    })
   })
 })

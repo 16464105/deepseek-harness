@@ -26,6 +26,7 @@ import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -206,11 +207,16 @@ export class ClientModuleRegistry extends Service {
     // whose package declares every composed plugin as a dependency). The
     // modules package's own URL would miss sibling packages under pnpm's
     // isolated node_modules.
-    if (ctx.baseUrl === undefined) {
+    const { baseUrl } = ctx
+    if (baseUrl === undefined) {
       throw new Error('client-modules: ctx.baseUrl is unset — the node half needs the config-tree anchor to resolve plugin packages')
     }
-    const require = createRequire(ctx.baseUrl)
-    this.resolvePkgJson = spec => require.resolve(`${spec}/package.json`)
+    const require = createRequire(baseUrl)
+    this.resolvePkgJson = (spec) => {
+      const packageJsonSpecifier = `${spec}/package.json`
+      const resolved = ctx.loader.resolveImport?.(packageJsonSpecifier, baseUrl, {}) ?? packageJsonSpecifier
+      return resolved.startsWith('file:') ? fileURLToPath(resolved) : require.resolve(resolved)
+    }
 
     // Subscribe before seeding so a fiber arriving mid-activation lands in the
     // same dirty set (Set idempotence makes the overlap harmless). An entry-less

@@ -38,6 +38,10 @@ peerDependencyRules:
 # default and only allow scripts we need. esbuild (native binary) and lefthook
 # (git hooks) genuinely need theirs.
 allowBuilds:
+  # Downloads the reviewed Electron runtime used by the desktop application.
+  electron: true
+  # Windows installer helper lifecycle metadata is not required to build NSIS.
+  electron-winstaller: false
   esbuild: true
   lefthook: true
   # Cross-platform boundary for the persistent PTY backend, including ConPTY on Windows.

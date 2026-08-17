@@ -564,8 +564,10 @@ describe('boot', () => {
     const absolutePlugin = join(dir, 'absolute.mjs')
     const shadow = join(dir, 'node_modules', '@deepseek-ai', 'dsh-system-prompt')
     const harnessPlugin = join(harness, 'node_modules', '@deepseek-ai', 'dsh-system-prompt')
+    const harnessChild = join(harness, 'node_modules', '@deepseek-ai', 'dsh-host-child')
     mkdirSync(shadow, { recursive: true })
     mkdirSync(harnessPlugin, { recursive: true })
+    mkdirSync(harnessChild, { recursive: true })
     writeFileSync(join(shadow, 'package.json'), JSON.stringify({
       name: '@deepseek-ai/dsh-system-prompt',
       type: 'module',
@@ -583,8 +585,20 @@ describe('boot', () => {
       exports: './index.mjs',
     }))
     writeFileSync(join(harnessPlugin, 'index.mjs'), [
-      'export function apply(ctx) {',
+      'export async function apply(ctx) {',
       '  ctx.provide("harnessPluginLoaded", true)',
+      '  await ctx.loader.create({ name: "@deepseek-ai/dsh-host-child" })',
+      '}',
+      '',
+    ].join('\n'))
+    writeFileSync(join(harnessChild, 'package.json'), JSON.stringify({
+      name: '@deepseek-ai/dsh-host-child',
+      type: 'module',
+      exports: './index.mjs',
+    }))
+    writeFileSync(join(harnessChild, 'index.mjs'), [
+      'export function apply(ctx) {',
+      '  ctx.provide("harnessChildLoaded", true)',
       '}',
       '',
     ].join('\n'))
@@ -614,9 +628,12 @@ describe('boot', () => {
       await configOwned.fiber.dispose()
     }
     const harnessBaseUrl = pathToFileURL(join(harness, 'entry.mjs')).href
-    const ctx = await boot(NAME, hostOwnedPath, undefined, undefined, harnessBaseUrl)
+    const ctx = await boot(NAME, hostOwnedPath, undefined, (hostCtx) => {
+      hostCtx.loader.internal = undefined
+    }, harnessBaseUrl)
     try {
       expect(ctx.get('harnessPluginLoaded')).toBe(true)
+      expect(ctx.get('harnessChildLoaded')).toBe(true)
       expect(ctx.get('shadowPluginLoaded')).toBeUndefined()
       expect(ctx.get('relativePluginLoaded')).toBe(true)
       expect(ctx.get('absolutePluginLoaded')).toBe(true)

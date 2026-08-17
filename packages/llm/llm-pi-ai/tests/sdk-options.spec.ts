@@ -12,12 +12,13 @@ vi.mock('@earendil-works/pi-ai/api/openai-completions.lazy', () => ({
 }))
 
 import { PiAiAdapter } from '../src/adapter.ts'
+import type { PiAiAdapterOptions } from '../src/adapter.ts'
 import { resolveProfiles } from '../src/config.ts'
 
 afterEach(() => { streamSimple.mockReset() })
 
 /** A hand-declared OpenAI-compatible route with one fully described model. */
-function gatewayAdapter(): PiAiAdapter {
+function gatewayAdapter(prepareRequest?: PiAiAdapterOptions['prepareRequest']): PiAiAdapter {
   return new PiAiAdapter({
     profiles: () => resolveProfiles({
       'local-gateway': {
@@ -27,6 +28,7 @@ function gatewayAdapter(): PiAiAdapter {
       },
     }),
     resolveApiKey: () => Promise.resolve('test-key'),
+    ...prepareRequest === undefined ? {} : { prepareRequest },
   })
 }
 
@@ -68,6 +70,28 @@ describe('pi-ai SDK retry boundary', () => {
       baseUrl: 'http://127.0.0.1:9/v1',
       contextWindow: 8192,
       maxTokens: 1024,
+    })
+  })
+
+  it('passes provider-prepared headers and payload normalization to the SDK request', async () => {
+    const onPayload = vi.fn((payload: unknown) => payload)
+    const prepareRequest = vi.fn((_request: Parameters<NonNullable<PiAiAdapterOptions['prepareRequest']>>[0]) => ({
+      headers: { 'x-provider-request': 'dynamic' },
+      onPayload,
+    }))
+    streamSimple.mockImplementation(() => { throw new Error('mock SDK boundary') })
+
+    await drain(gatewayAdapter(prepareRequest))
+
+    expect(prepareRequest).toHaveBeenCalledOnce()
+    expect(prepareRequest.mock.calls[0]?.[0]).toMatchObject({
+      options: { provider: 'local-gateway', model: 'local-model' },
+      profile: { provider: 'local-gateway' },
+      model: { id: 'local-model' },
+    })
+    expect(streamSimple.mock.calls[0]?.[2]).toMatchObject({
+      headers: { 'x-provider-request': 'dynamic' },
+      onPayload,
     })
   })
 })

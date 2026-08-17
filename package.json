@@ -95,7 +95,7 @@
     "website:build": "pnpm run docs:build",
     "verify-package-readme-limitations": "tsx scripts/verify-package-readme-limitations.ts",
     "verify-node-next-types": "tsx scripts/verify-node-next-types.ts",
-    "verify-runtime-closure": "tsx scripts/verify-runtime-closure.ts",
+    "verify-runtime-closure": "tsx scripts/verify-runtime-closure.ts && tsx scripts/verify-runtime-closure.ts --manifest apps/desktop/package.json",
     "verify-vendored-links": "tsx scripts/verify-vendored-links.ts",
     "verify-cordis-config": "tsx scripts/verify-cordis-config.ts",
     "rescope-vendor": "tsx scripts/rescope-vendor.ts",
@@ -139,6 +139,12 @@
     "demo:acp": "node --import tsx packages/examples/acp-demo/src/bin.ts --config examples/acp-agent/cordis.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
     "dev:web": "tsx scripts/dev-web.ts --poll",
+    "desktop:start": "pnpm --filter @deepseek-ai/dsh-desktop run start",
+    "desktop:package": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package",
+    "desktop:package:dir": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:dir",
+    "desktop:package:mac": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac",
+    "desktop:package:mac:arm64": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64",
+    "desktop:package:mac:x64": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac:x64",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
   "devDependencies": {

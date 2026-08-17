@@ -207,6 +207,7 @@ describe('sessions domain schemas', () => {
     expect(sessionModelsValueSchema.parse({
       current: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'max' },
       routable: true,
+      requiresImageInput: false,
       groups: [{
         id: 'deepseek-official',
         name: 'DeepSeek',
@@ -214,6 +215,7 @@ describe('sessions domain schemas', () => {
           id: 'deepseek-v4-flash',
           name: 'DeepSeek V4 Flash',
           description: 'fast',
+          inputModalities: ['text', 'image'],
           reasoning: {
             efforts: [
               { id: 'off', name: 'Off' },

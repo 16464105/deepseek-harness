@@ -10,7 +10,7 @@
  */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { createScope } from '@deepseek-ai/dsh-client-runtime/client'
+import { createScope, createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
@@ -29,6 +29,7 @@ const GROUPS = [{
     {
       id: 'deepseek-v4-flash',
       name: 'DeepSeek-V4-Flash',
+      inputModalities: ['text'] as const,
       reasoning: {
         efforts: [
           { id: 'off', name: 'Off' },
@@ -41,6 +42,7 @@ const GROUPS = [{
     {
       id: 'deepseek-v4-pro',
       name: 'DeepSeek-V4-Pro',
+      inputModalities: ['text', 'image'] as const,
       reasoning: {
         efforts: [
           { id: 'off', name: 'Off' },
@@ -57,12 +59,16 @@ const GROUPS = [{
 async function bench() {
   const ctx = new Context()
   let current: ModelSelection = { provider: 'deepseek-official', model: 'deepseek-v4-flash' }
+  let requiresImageInput = false
   const calls = { models: 0, select: 0 }
   ctx.provide('connection', { api: { sessions: {
     models: () => {
       calls.models += 1
       return Promise.resolve({
-        result: { ok: true as const, value: { current, routable, groups: GROUPS, failures: [] } },
+        result: {
+          ok: true as const,
+          value: { current, routable, requiresImageInput, groups: GROUPS, failures: [] },
+        },
       })
     },
     selectModel: (payload: { provider: string; model: string; reasoningEffort?: string }) => {
@@ -81,7 +87,15 @@ async function bench() {
   // block follows this, never catalog membership.
   let routable = true
   const blocks = new Map<SessionId, { reason: string } | undefined>()
+  const inputByScope = new Map<Context, ReturnType<typeof createSnapshotStore<{ imageIds: readonly string[] }>>>()
   ctx.provide('conversation', {
+    input: {
+      for: (actx: Context) => {
+        const state = inputByScope.get(actx)
+        if (state === undefined) throw new Error('missing fake input state')
+        return { state }
+      },
+    },
     blocks: {
       set: (id: SessionId, block: { reason: string } | undefined) => { blocks.set(id, block) },
     },
@@ -120,6 +134,7 @@ async function bench() {
   const mint = (key: string) => {
     const handle = createScope(ctx, sid(key))
     scopes.set(sid(key), handle.ctx)
+    inputByScope.set(handle.ctx, createSnapshotStore({ imageIds: [] as readonly string[] }))
     return handle
   }
   return {
@@ -128,6 +143,12 @@ async function bench() {
     seat: () => seats.get('conversation.input.model')!,
     hostCurrent: () => current,
     setHostCurrent: (selection: ModelSelection) => { current = selection },
+    setRequiresImageInput: (next: boolean) => { requiresImageInput = next },
+    setDraftImages: (key: string, imageIds: readonly string[]) => {
+      const actx = scopes.get(sid(key))
+      if (actx === undefined) throw new Error(`missing scope ${key}`)
+      inputByScope.get(actx)?.set({ imageIds })
+    },
     address: (id: SessionId) => { addressed.add(id) },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
@@ -260,6 +281,28 @@ describe('ui-model-selection dual entry', () => {
     expect(b.blockOf('s1')).toBeUndefined()
   })
 
+  it('blocks an explicit text-only model for draft or durable images until an image model is selected', async () => {
+    const b = await bench()
+    b.mint('s1')
+    const face = b.seat().inject!(sid('s1'))
+    face.load()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    b.setDraftImages('s1', ['draft-image'])
+    expect(b.blockOf('s1')?.reason).toBe(zh['blocked.image'])
+    await face.select({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    expect(b.blockOf('s1')).toBeUndefined()
+
+    b.setDraftImages('s1', [])
+    b.setHostCurrent({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    b.setRequiresImageInput(true)
+    b.ctx.remote.$dispatch('llm/adapters-updated', [])
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(b.blockOf('s1')?.reason).toBe(zh['blocked.image'])
+  })
+
   it('never blocks on catalog membership alone', async () => {
     const b = await bench()
     b.mint('s1')
@@ -268,6 +311,7 @@ describe('ui-model-selection dual entry', () => {
     // a selection, the composer stays usable. Blocking here would break a
     // supported configuration (a narrowed `models` list over a live route).
     b.setHostCurrent({ provider: 'deepseek-official', model: 'unlisted' })
+    b.setDraftImages('s1', ['draft-image'])
     face.load()
     await Promise.resolve()
     await Promise.resolve()

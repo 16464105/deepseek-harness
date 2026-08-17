@@ -191,6 +191,8 @@ export interface LaunchOptions {
    * ordering.
    */
   extraOverlayPath?: string
+  /** Keep the shipped workspace AGENTS.md loader enabled for scenarios that assert model-visible instruction context. */
+  agentInstructions?: boolean
   /**
    * Replay fixture (session.jsonl) served by the inserted dsh-llm-replay row
    * in replay/refresh modes; ignored in record mode (the real adapter
@@ -422,7 +424,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // fs/bash cwd default to process.cwd(); the gateway injects the same
     // value into session.cwd — chdir below anchors all three to the temp
     // workspace, keeping the composition untouched.
-    { id: 'agent-instructions', disabled: true },
+    { id: 'agent-instructions', disabled: options.agentInstructions !== true },
     { id: 'session-title-llm', disabled: true },
     // Fixture sessions must never leave the process: the shipped row defaults
     // to the production OTLP endpoint (or whatever DSH_TELEMETRY_OTLP_URL

@@ -6,8 +6,8 @@
  * has none. The pi-ai profile records that derivation as `apiKeyEnv` only when
  * a key is entered; a blank key materializes a reference-free profile for
  * provider-native authentication);
- * the collapsed 自定义设置 area carries the per-family extras (`baseURL` for
- * both families, DeepSeek's id/name/context-window model catalog, and the
+ * the collapsed 自定义设置 area carries the configurable-family extras (`baseURL`
+ * for DeepSeek and pi-ai, DeepSeek's id/name/context-window model catalog, and the
  * display name and wire protocol of a pi-ai route the adapter does not ship —
  * the two fields the create card asked that route for, editable here for the
  * same reason).
@@ -15,8 +15,10 @@
  * the models under one provider disagree about it, so a provider-scoped
  * control can only be set to a value some of them reject. The composer's
  * model picker offers each model its own levels; `settings.yaml` keeps the
- * profile field for a deployment that knows its route. Everything else stays
- * owned by `settings.yaml`. Profile edits land as minimal `settings.mutate`
+ * profile field for a deployment that knows its route. Tencent keeps its
+ * endpoint and protocol fixed while exposing desktop-cache refresh and model
+ * visibility controls. Everything else stays owned by `settings.yaml`.
+ * Profile edits land as minimal `settings.mutate`
  * path ops against the stored section — the card names only the fields it can
  * see instead of rebuilding the whole subtree from a partial descriptor.
  */
@@ -28,7 +30,7 @@ import {
   deletePath, getPath, hasPath, nodeAtPath, rehydrateSchema, setPath, validateDraft,
 } from '@deepseek-ai/dsh-client-schema-form'
 import {
-  DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
+  DeepSeekModelsEditor, modelDrafts, validateModelRows,
 } from './DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
@@ -38,10 +40,13 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
-type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
+type EditorLayout = 'deepseek' | 'pi-ai' | 'tencent' | 'unknown'
 
 /** The public DeepSeek endpoint shown as the deepseek base-URL placeholder. */
 const DEEPSEEK_PUBLIC_BASE_URL = 'https://api.deepseek.com'
+
+/** Where Tencent CodeBuddy keys are minted, shown as the tencent key hint. */
+const TENCENT_KEY_HINT_URL = 'https://tencent.sso.codebuddy.cn/profile/keys'
 
 /** Props of {@link ProviderEditor}. */
 export interface ProviderEditorProps {
@@ -125,6 +130,7 @@ export function pathOps(
 function layoutOf(ns: string): EditorLayout {
   if (ns === 'llm-deepseek') return 'deepseek'
   if (ns === 'llm-pi-ai') return 'pi-ai'
+  if (ns === 'llm-tencent-codebuddy') return 'tencent'
   return 'unknown'
 }
 
@@ -203,7 +209,8 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
 
   // The model list is validated by the same per-row checker for both families,
   // so a bad row is named by its position rather than by a blanket message.
-  const modelFailure = validateDeepSeekModels(getPath(draft, ['models']))
+  // The Tencent `models` field (extra models) rides the same row contract.
+  const modelFailure = validateModelRows(getPath(draft, ['models']))
   const keyFailure = apiKeyFailure(keyDraft)
   // What a probe or a write must carry: the typed key with paste whitespace
   // removed. A blank field yields an empty string, which both call sites read
@@ -242,22 +249,6 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       && stringAt(fallback, 'apiKeyEnv') === undefined && keyValue.length > 0
       ? setPath(draft, ['apiKeyEnv'], keyRef)
       : draft
-    if (props.credentialOnly !== true) {
-      // The same checker gates the submit button, so a card cannot reach this
-      // with a bad row; it stays because the schema check below would refuse
-      // the write with a message naming a path instead of the row, and because
-      // nothing but this function decides what is written.
-      const failure = validateDeepSeekModels(getPath(next, ['models']))
-      /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
-      if (failure !== undefined) {
-        return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`
-      }
-    }
-    /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
-    if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
-      const sectionError = validateDraft(node, next)
-      if (sectionError !== undefined) return sectionError
-    }
     const materializesNativeProfile = layout === 'pi-ai'
       && fallback === undefined
       && committedOriginal === undefined
@@ -268,6 +259,25 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
         ? [{ op: 'set', path: [...settingsPath], value: {} }]
         : pathOps(settingsPath, committedOriginal, next)
     if (ops.length > 0) {
+      // Credentials are independent of settings. Avoid resolving schema
+      // defaults when a key-only edit has no settings op; some adapters expose
+      // frozen defaults whose normalizer would otherwise mutate the snapshot.
+      if (props.credentialOnly !== true) {
+        // The same checker gates the submit button, so a card cannot reach this
+        // with a bad row; it stays because the schema check below would refuse
+        // the write with a message naming a path instead of the row, and because
+        // nothing but this function decides what is written.
+        const failure = validateModelRows(getPath(next, ['models']))
+        /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
+        if (failure !== undefined) {
+          return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`
+        }
+      }
+      /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
+      if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
+        const sectionError = validateDraft(node, next)
+        if (sectionError !== undefined) return sectionError
+      }
       const response = await api.settings.mutate({ ns, ops, expectedRevision })
       if (!response.result.ok) {
         return response.result.error.code === 'settings-conflict'
@@ -331,7 +341,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
    * narrowed so the per-family branches below are total: an unknown namespace
    * renders the hint instead and never reaches this body.
    */
-  const curatedFields = (family: 'deepseek' | 'pi-ai'): ReactNode => {
+  const curatedFields = (family: 'deepseek' | 'pi-ai' | 'tencent'): ReactNode => {
     // What a hand-declared route names for itself and nothing else can supply.
     // A whole-section `llm-deepseek` profile is a composition fact with no
     // per-route identity for its schema to carry, hence the family test.
@@ -359,6 +369,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     }
     return (
       <>
+        {family === 'tencent'
+          ? (
+            <p className={styles['keyHint']}>
+              <a href={TENCENT_KEY_HINT_URL} target="_blank" rel="noopener noreferrer">
+                {t('tencentKeyHint')}
+              </a>
+            </p>
+          )
+          : null}
         <div className={styles['field']}>
           <span className={styles['fieldLabel']}>{t('keyInput')}</span>
           <input
@@ -376,93 +395,102 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
           />
           {shownKeyFailure === undefined ? null : <p className={styles['error']}>{t(shownKeyFailure)}</p>}
         </div>
-        {props.credentialOnly === true ? null : <details className={styles['customized']}>
-          <summary className={styles['customizedSummary']}>{t('customized')}</summary>
-          <div className={styles['customizedBody']}>
-            {/* The name and the protocol are the create card's two remaining
-                profile fields; a route the adapter ships defaults both from
-                its catalog entry and neither belongs on its card. */}
-            {ownsIdentity
-              ? (
-                <div className={styles['field']}>
-                  <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
-                  <input
-                    className={styles['input']}
-                    type="text"
-                    value={stringAt(draft, 'displayName') ?? ''}
-                    // What this route is called the moment the field is
-                    // cleared, which is the layer beneath the one this field
-                    // edits: a `cordis.yml` may pin a name for a route the
-                    // catalog does not ship, and only when nothing does is
-                    // the answer the route id. Reading the effective value
-                    // instead would echo the stored override back as the
-                    // thing clearing restores.
-                    placeholder={stringAt(getPath(namespace.base, settingsPath), 'displayName')
-                      ?? props.provider}
-                    aria-label={t('customDisplayName')}
-                    disabled={disabled}
-                    onChange={(event) => { setField('displayName', event.target.value) }}
-                  />
-                </div>
-              )
-              : null}
-            <div className={styles['field']}>
-              <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
-              <input
-                className={styles['input']}
-                type="text"
-                value={stringAt(draft, 'baseURL') ?? ''}
-                placeholder={family === 'deepseek'
-                  ? DEEPSEEK_PUBLIC_BASE_URL
-                  : stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
-                aria-label={t('baseUrl')}
-                disabled={disabled}
-                onChange={(event) => {
-                  setField('baseURL', event.target.value === '' ? undefined : event.target.value)
-                }}
-              />
-            </div>
-            {/* The protocol sits beside the endpoint it describes, as it does
-                on the create card. */}
-            {ownsIdentity
-              ? (
-                <div className={styles['field']}>
-                  <span className={styles['fieldLabel']}>{t('customApi')}</span>
-                  <select
-                    className={`${styles['input']} ${styles['selectInput']}`}
-                    value={probeApi ?? ''}
-                    aria-label={t('customApi')}
-                    disabled={disabled}
-                    onChange={(event) => { setField('api', event.target.value) }}
-                  >
-                    {/* A profile naming no protocol — hand-written into
-                        settings.yaml with no model to need one — selects
-                        nothing rather than reading as if it had picked the
-                        first choice. The option is named because a screen
-                        reader announces it either way, and an empty one is
-                        announced as a choice with no identity. */}
-                    {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
-                    {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
-                  </select>
-                </div>
-              )
-              : null}
-            {/* Both families edit the same rows through the same contract; only
-                the extras differ — DeepSeek's inherited capacities, pi-ai's
-                endpoint interrogation. */}
-            {family === 'deepseek'
-              ? (
-                <DeepSeekModelsEditor
-                  {...catalogProps}
-                  defaultContextWindow={typeof defaultContextWindow === 'number'
-                    ? defaultContextWindow
-                    : undefined}
-                  defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
-                />
-              )
-              : <ModelListEditor {...catalogProps} probe={probe} probeBlocked={keyFailure} api={api} />}
-          </div>
-        </details>}
+        {props.credentialOnly === true
+          ? null
+          : (
+            <details className={styles['customized']}>
+              <summary className={styles['customizedSummary']}>{t('customized')}</summary>
+              <div className={styles['customizedBody']}>
+                {/* The name and the protocol are the create card's two remaining
+                    profile fields; a route the adapter ships defaults both from
+                    its catalog entry and neither belongs on its card. */}
+                {ownsIdentity
+                  ? (
+                    <div className={styles['field']}>
+                      <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
+                      <input
+                        className={styles['input']}
+                        type="text"
+                        value={stringAt(draft, 'displayName') ?? ''}
+                        // What this route is called the moment the field is
+                        // cleared, which is the layer beneath the one this field
+                        // edits: a `cordis.yml` may pin a name for a route the
+                        // catalog does not ship, and only when nothing does is
+                        // the answer the route id. Reading the effective value
+                        // instead would echo the stored override back as the
+                        // thing clearing restores.
+                        placeholder={stringAt(getPath(namespace.base, settingsPath), 'displayName')
+                          ?? props.provider}
+                        aria-label={t('customDisplayName')}
+                        disabled={disabled}
+                        onChange={(event) => { setField('displayName', event.target.value) }}
+                      />
+                    </div>
+                  )
+                  : null}
+                {family === 'tencent'
+                  ? null
+                  : (
+                    <div className={styles['field']}>
+                      <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
+                      <input
+                        className={styles['input']}
+                        type="text"
+                        value={stringAt(draft, 'baseURL') ?? ''}
+                        placeholder={family === 'deepseek'
+                          ? DEEPSEEK_PUBLIC_BASE_URL
+                          : stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
+                        aria-label={t('baseUrl')}
+                        disabled={disabled}
+                        onChange={(event) => {
+                          setField('baseURL', event.target.value === '' ? undefined : event.target.value)
+                        }}
+                      />
+                    </div>
+                  )}
+                {/* The protocol sits beside the endpoint it describes, as it does
+                    on the create card. */}
+                {ownsIdentity
+                  ? (
+                    <div className={styles['field']}>
+                      <span className={styles['fieldLabel']}>{t('customApi')}</span>
+                      <select
+                        className={`${styles['input']} ${styles['selectInput']}`}
+                        value={probeApi ?? ''}
+                        aria-label={t('customApi')}
+                        disabled={disabled}
+                        onChange={(event) => { setField('api', event.target.value) }}
+                      >
+                        {/* A profile naming no protocol — hand-written into
+                            settings.yaml with no model to need one — selects
+                            nothing rather than reading as if it had picked the
+                            first choice. The option is named because a screen
+                            reader announces it either way, and an empty one is
+                            announced as a choice with no identity. */}
+                        {probeApi === undefined ? <option value="">{t('customApiUnset')}</option> : null}
+                        {protocols.map(choice => <option key={choice} value={choice}>{choice}</option>)}
+                      </select>
+                    </div>
+                  )
+                  : null}
+                {/* DeepSeek and Tencent edit the same fixed-directory rows
+                    through the same contract — the inherited capacities
+                    differ, Tencent's catalog carries its own — while only
+                    pi-ai can interrogate the endpoint it points at. */}
+                {family === 'deepseek' || family === 'tencent'
+                  ? (
+                    <DeepSeekModelsEditor
+                      {...catalogProps}
+                      defaultContextWindow={typeof defaultContextWindow === 'number'
+                        ? defaultContextWindow
+                        : undefined}
+                      defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
+                    />
+                  )
+                  : <ModelListEditor {...catalogProps} probe={probe} probeBlocked={keyFailure} api={api} />}
+              </div>
+            </details>
+          )}
       </>
     )
   }

@@ -1162,6 +1162,36 @@ export type Config = Readonly<Record<string, never>>
 
 Source: [`packages/llm/llm-retry/src/index.ts:24`](../packages/llm/llm-retry/src/index.ts)
 
+<a id="deepseek-aidsh-llm-tencent-codebuddy"></a>
+
+## `@deepseek-ai/dsh-llm-tencent-codebuddy`
+
+Requires: `llm`
+
+```ts config-catalog
+/** Provider configuration. Endpoint, protocol, headers, and catalog stay package-owned. */
+export interface Config {
+  /** Credential reference resolved per request. */
+  apiKeyEnv?: string
+  /**
+   * Model catalog served by this route. Omission serves the package's fixed
+   * catalog unchanged; an explicit list replaces it. The Models page writes
+   * the full list when the user customizes the directory.
+   */
+  models?: PiAiModelProfile[]
+  /** HTTP/provider SDK timeout in milliseconds. */
+  timeoutMs?: number
+  /** Maximum provider idle time while one stream read is outstanding. */
+  streamIdleTimeoutMs?: number
+  /** Provider-owned model-request retry policy. */
+  retryPolicy?: RetryPolicyConfig
+}
+```
+
+Depends on: [`PiAiModelProfile`](../packages/llm/llm-pi-ai/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts)
+
+Source: [`packages/llm/llm-tencent-codebuddy/src/index.ts:48`](../packages/llm/llm-tencent-codebuddy/src/index.ts)
+
 <a id="deepseek-aidsh-lsp-stdio"></a>
 
 ## `@deepseek-ai/dsh-lsp-stdio`
@@ -3130,6 +3160,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-client-web` ([`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts))
 - `@deepseek-ai/dsh-client-web-react` ([`packages/client/web-react/src/index.ts`](../packages/client/web-react/src/index.ts))
 - `@deepseek-ai/dsh-cmdline` ([`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts))
+- `@deepseek-ai/dsh-desktop-app` ([`packages/bundle/desktop-app/src/index.ts`](../packages/bundle/desktop-app/src/index.ts))
 - `@deepseek-ai/dsh-home-paths` ([`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts))
 - `@deepseek-ai/dsh-hook-protocol` ([`packages/hooks/hook-protocol/src/index.ts`](../packages/hooks/hook-protocol/src/index.ts))
 - `@deepseek-ai/dsh-launch-environment` ([`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts))

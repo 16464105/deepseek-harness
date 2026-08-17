@@ -36,16 +36,16 @@ export class ModelDirectoryResolver extends Service {
 
   private readonly live: LiveState = { directories: new Map() }
 
-  /** Localized composer-block copy; this plugin owns the string it raises. */
-  private readonly blockReason: () => string
+  /** Localized composer-block copies; this plugin owns the strings it raises. */
+  private readonly blockReasons: { unavailable: () => string; image: () => string }
 
   /**
    * @param ctx - owning root context (the service registers itself as `models`).
    * @param config - the bound translator for this plugin's own dictionary.
    */
-  constructor(ctx: Context, config: { blockReason: () => string }) {
+  constructor(ctx: Context, config: { blockReasons: { unavailable: () => string; image: () => string } }) {
     super(ctx, 'modelDirectories')
-    this.blockReason = config.blockReason
+    this.blockReasons = config.blockReasons
     ctx.on('connection/reset', () => {
       for (const directory of this.live.directories.values()) directory.resetConnected()
     })
@@ -87,16 +87,29 @@ export class ModelDirectoryResolver extends Service {
     // slow or unreachable Host would lock a working composer.
     const conversation = this.ctx.get('conversation')
     if (conversation !== undefined) {
+      const input = conversation.input.for(actx)
       const publish = (): void => {
-        conversation.blocks.set(sessionId, directory.store.getSnapshot().routable === false
-          ? { reason: this.blockReason() }
-          : undefined)
+        const state = directory.store.getSnapshot()
+        const current = state.current === null
+          ? undefined
+          : state.groups
+            .find(group => group.id === state.current?.provider)
+            ?.models.find(model => model.id === state.current?.model)
+        const draftRequiresImage = input.state.getSnapshot().imageIds.length > 0
+        const rejectsImage = current?.inputModalities !== undefined
+          && !current.inputModalities.includes('image')
+        const block = state.routable === false
+          ? { reason: this.blockReasons.unavailable() }
+          : (state.requiresImageInput || draftRequiresImage) && rejectsImage
+            ? { reason: this.blockReasons.image() }
+            : undefined
+        conversation.blocks.set(sessionId, block)
       }
       publish()
       actx.effect(() => {
-        const stop = directory.store.subscribe(publish)
+        const stops = [directory.store.subscribe(publish), input.state.subscribe(publish)]
         return () => {
-          stop()
+          for (const stop of stops) stop()
           conversation.blocks.set(sessionId, undefined)
         }
       }, 'ui-model-selection: composer block')
