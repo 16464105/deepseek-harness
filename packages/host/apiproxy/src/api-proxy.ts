@@ -236,6 +236,13 @@ function messagesHaveImage(messages: readonly { content: readonly ContentBlock[]
   return messages.some(message => contentHasImage(message.content))
 }
 
+/** True when an Agent's visible history or pending inbox still contains image input. */
+function agentRequiresImageInput(agent: Agent): boolean {
+  return [...agent.inbox.nextTurn, ...agent.inbox.nextStep]
+    .some(message => contentHasImage(message.content))
+    || messagesHaveImage(agent.session.deriveMessages())
+}
+
 /** Resolve the first reference matching one opaque id. */
 function referencedImage(events: readonly SessionEvent[], attachmentId: string): ImageAttachmentRef | undefined {
   for (const event of events) {
@@ -352,6 +359,9 @@ async function buildModelCatalog(ctx: Context): Promise<{
           id: model.id,
           name: model.name,
           ...model.description === undefined ? {} : { description: model.description },
+          ...resolved.inputModalities === undefined
+            ? {}
+            : { inputModalities: [...resolved.inputModalities] },
           ...reasoning === undefined ? {} : { reasoning },
         }
       }))
@@ -2276,7 +2286,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const current = selectionFor(found.agent).current
         const { groups, failures } = await buildModelCatalog(ctx)
         const routable = routeServed(current.provider)
-        return ok(request, { current: { ...current }, routable, groups, failures })
+        const requiresImageInput = agentRequiresImageInput(found.agent)
+        return ok(request, { current: { ...current }, routable, requiresImageInput, groups, failures })
       },
 
       async selectModel(request) {
@@ -2292,9 +2303,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 ? {}
                 : { reasoningEffort: ReasoningEffortId(reasoningEffort) },
             })
-            const pendingImage = [...found.agent.inbox.nextTurn, ...found.agent.inbox.nextStep]
-              .some(message => contentHasImage(message.content))
-            if (pendingImage || messagesHaveImage(found.agent.session.deriveMessages())) {
+            if (agentRequiresImageInput(found.agent)) {
               const info = await ctx.llm.resolveModelInfo(resolved.provider, resolved.model)
               if (info.inputModalities !== undefined && !info.inputModalities.includes('image')) {
                 return err(request, {

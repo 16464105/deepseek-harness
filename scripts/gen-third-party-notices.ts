@@ -75,6 +75,40 @@ const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
   '@modelcontextprotocol/server-filesystem': { license: 'MIT / Apache-2.0', repo: 'https://github.com/modelcontextprotocol/servers' },
   // No repository field in the published manifest.
   'node-addon-require-builtin': { repo: 'https://www.npmjs.com/package/node-addon-require-builtin' },
+  // The desktop manifest declares both macOS architectures, while pnpm installs
+  // only the host payload. Notices must resolve every declared platform package.
+  '@img/sharp-darwin-arm64': {
+    license: 'Apache-2.0',
+    repo: 'https://github.com/lovell/sharp',
+  },
+  '@img/sharp-darwin-x64': {
+    license: 'Apache-2.0',
+    repo: 'https://github.com/lovell/sharp',
+  },
+  '@koromix/koffi-darwin-arm64': {
+    license: 'MIT',
+    repo: 'https://github.com/Koromix/koffi',
+  },
+  '@koromix/koffi-darwin-x64': {
+    license: 'MIT',
+    repo: 'https://github.com/Koromix/koffi',
+  },
+  '@vscode/ripgrep-darwin-arm64': {
+    license: 'MIT',
+    repo: 'https://github.com/microsoft/vscode-ripgrep',
+  },
+  '@vscode/ripgrep-darwin-x64': {
+    license: 'MIT',
+    repo: 'https://github.com/microsoft/vscode-ripgrep',
+  },
+  'node-addon-require-builtin-darwin-arm64': {
+    license: 'MIT',
+    repo: 'https://www.npmjs.com/package/node-addon-require-builtin',
+  },
+  'node-addon-require-builtin-darwin-x64': {
+    license: 'MIT',
+    repo: 'https://www.npmjs.com/package/node-addon-require-builtin',
+  },
 }
 
 /**

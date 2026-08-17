@@ -11,7 +11,7 @@ import {
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 import { pathOps } from '../src/client/ProviderEditor.tsx'
 import {
-  DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateDeepSeekModels,
+  DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateModelRows,
 } from '../src/client/DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { deriveKeyRef, ModelsSettingsStore } from '../src/client/store.ts'
@@ -34,6 +34,15 @@ function expandRow(position: number): void {
 /** The capacity inputs of every open row, in row order. */
 function capacityInputs(label: string): HTMLInputElement[] {
   return screen.getAllByLabelText<HTMLInputElement>(new RegExp(label))
+}
+
+/** Freeze the wire snapshot the client store exposes to React subscribers. */
+function deeplyFreeze(value: unknown): unknown {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value)
+    for (const child of Object.values(value)) deeplyFreeze(child)
+  }
+  return value
 }
 
 const PiAiConfig = Schema.object({
@@ -71,6 +80,30 @@ const DeepSeekConfig = Schema.object({
       contextWindow: 1_000_000,
     },
   ]),
+})
+
+const TencentConfig = Schema.object({
+  apiKeyEnv: Schema.string().role('credential-ref'),
+  models: Schema.array(Schema.object({
+    id: Schema.string().required(),
+    name: Schema.string(),
+    contextWindow: Schema.number().step(1).min(1),
+    maxTokens: Schema.number().step(1).min(1),
+    input: Schema.array(Schema.union(['text', 'image'])),
+    reasoningEfforts: Schema.union([
+      Schema.dict(Schema.union([Schema.string(), Schema.const(null)])),
+      Schema.const(false),
+    ]),
+    compat: Schema.object({
+      thinkingFormat: Schema.union(['openai', 'deepseek', 'openrouter', 'together', 'zai', 'qwen', 'string-thinking', 'ant-ling']),
+      supportsReasoningEffort: Schema.boolean(),
+    }),
+  })).default([
+    { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+    { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+  ]),
+  timeoutMs: Schema.number().step(1).min(0),
+  streamIdleTimeoutMs: Schema.number().min(1),
 })
 
 const DEFAULT_DEEPSEEK_MODELS = [
@@ -140,12 +173,14 @@ function scriptedFace(overrides: {
   mutate?: ReturnType<typeof vi.fn>
   set?: ReturnType<typeof vi.fn>
   unset?: ReturnType<typeof vi.fn>
+  discover?: ReturnType<typeof vi.fn>
 } = {}) {
   const update = overrides.update ?? vi.fn(() => Promise.resolve(ok(wireNamespaces()[2])))
   const replace = overrides.replace ?? vi.fn(() => Promise.resolve(ok(wireNamespaces()[2])))
   const mutate = overrides.mutate ?? vi.fn(() => Promise.resolve(ok(wireNamespaces()[2])))
   const set = overrides.set ?? vi.fn(() => Promise.resolve(ok({})))
   const unset = overrides.unset ?? vi.fn(() => Promise.resolve(ok({})))
+  const discover = overrides.discover ?? vi.fn(() => Promise.resolve(ok({ models: [] })))
   const face = {
     llm: {
       providers: vi.fn(() => Promise.resolve(ok({
@@ -159,6 +194,7 @@ function scriptedFace(overrides: {
         ],
       }))),
       models: vi.fn(() => Promise.resolve(ok({ groups: [], failures: [] }))),
+      discoverModels: discover,
     },
     settings: {
       describe: vi.fn(() => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: wireNamespaces() }))),
@@ -178,7 +214,7 @@ function scriptedFace(overrides: {
       unset,
     },
   }
-  return { face, update, replace, mutate, set, unset }
+  return { face, update, replace, mutate, set, unset, discover }
 }
 
 type WireFace = ConstructorParameters<typeof ModelsSettingsStore>[0]
@@ -414,6 +450,166 @@ describe('ModelsSection', () => {
     expect(onClose).toHaveBeenCalledWith(true)
   })
 
+  it('keeps Tencent endpoint settings fixed and writes its credential reference', async () => {
+    const set = vi.fn(() => Promise.resolve(ok({})))
+    const { face, mutate } = scriptedFace({ set })
+    const namespace: SettingsNamespaceView = {
+      ns: 'llm-tencent-codebuddy',
+      schema: deeplyFreeze(JSON.parse(JSON.stringify(TencentConfig.toJSON()))),
+      value: { apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY' },
+      base: { apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY' },
+      user: {},
+      applies: 'live',
+      secrets: [],
+      revision: 0,
+    }
+    const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
+
+    render(<ProviderEditor
+      provider="tencent-internal"
+      displayName="Tencent CodeBuddy"
+      namespace={namespace}
+      settingsPath={[]}
+      api={face as never}
+      t={t}
+      readOnly={false}
+      onClose={vi.fn()}
+    />)
+
+    // The Tencent card is the DeepSeek shape: key first, the model catalog
+    // behind the 自定义设置 fold, and no endpoint or cache controls. The key
+    // hint links to the page that mints CodeBuddy keys.
+    expect(screen.getByText(en.customized)).toBeTruthy()
+    expect(screen.queryByLabelText(en.baseUrl)).toBeNull()
+    const hint = screen.getByRole('link', { name: en.tencentKeyHint })
+    expect(hint.getAttribute('href')).toBe('https://tencent.sso.codebuddy.cn/profile/keys')
+    expect(hint.getAttribute('target')).toBe('_blank')
+    fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: '  codebuddy-key  ' } })
+    fireEvent.click(screen.getByText(en.apply))
+    await waitFor(() => {
+      expect(set).toHaveBeenCalledWith({
+        ref: 'TENCENT_CODEBUDDY_API_KEY',
+        value: 'codebuddy-key',
+      })
+    })
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
+  it('shows the fixed Tencent catalog inside the fold and writes a customized directory', async () => {
+    const namespace: SettingsNamespaceView = {
+      ns: 'llm-tencent-codebuddy',
+      schema: JSON.parse(JSON.stringify(TencentConfig.toJSON())) as unknown,
+      value: {
+        apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY',
+        models: [
+          { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+          { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+        ],
+      },
+      base: { apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY' },
+      user: {},
+      applies: 'live',
+      secrets: [],
+      revision: 0,
+    }
+    const mutate = vi.fn((_payload: unknown) => Promise.resolve(ok({
+      ...namespace,
+      value: {
+        apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY',
+        models: [
+          { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+          { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+          { id: 'gateway-extra', name: 'Gateway Extra', contextWindow: 32_000 },
+        ],
+      },
+      user: { models: [
+        { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+        { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+        { id: 'gateway-extra', name: 'Gateway Extra', contextWindow: 32_000 },
+      ] },
+      revision: 1,
+    })))
+    const { face } = scriptedFace({ mutate })
+    const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
+
+    render(<ProviderEditor
+      provider="tencent-internal"
+      displayName="Tencent CodeBuddy"
+      namespace={namespace}
+      settingsPath={[]}
+      api={face as never}
+      t={t}
+      readOnly={false}
+      onClose={vi.fn()}
+    />)
+
+    fireEvent.click(screen.getByText(en.customized))
+    // The schema default materializes the fixed catalog as the inherited rows.
+    expect(screen.getByText(en.modelsInherited)).toBeTruthy()
+    expect(screen.getAllByLabelText(new RegExp(en.modelId)).map(input => (input as HTMLInputElement).value))
+      .toEqual(['auto', 'gpt-5.6-sol'])
+
+    fireEvent.click(screen.getByText(en.addModel))
+    const ids = screen.getAllByLabelText(new RegExp(en.modelId))
+    const names = screen.getAllByLabelText(new RegExp(en.modelName))
+    expandRow(3)
+    fireEvent.change(ids[2] as HTMLInputElement, { target: { value: 'gateway-extra' } })
+    fireEvent.change(names[2] as HTMLInputElement, { target: { value: 'Gateway Extra' } })
+    fireEvent.change(screen.getByLabelText(`${en.contextWindow} 3`), { target: { value: '32K' } })
+    fireEvent.click(screen.getByText(en.apply))
+
+    await waitFor(() => { expect(mutate).toHaveBeenCalledTimes(1) })
+    expect(mutate.mock.calls[0]?.[0]).toEqual({
+      ns: 'llm-tencent-codebuddy',
+      ops: [{
+        op: 'set',
+        path: ['models'],
+        value: [
+          { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+          { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
+          { id: 'gateway-extra', name: 'Gateway Extra', contextWindow: 32_000 },
+        ],
+      }],
+      expectedRevision: 0,
+    })
+  })
+
+  it('rejects a duplicate Tencent model id before writing', async () => {
+    const namespace: SettingsNamespaceView = {
+      ns: 'llm-tencent-codebuddy',
+      schema: JSON.parse(JSON.stringify(TencentConfig.toJSON())) as unknown,
+      value: { apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY' },
+      base: { apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY' },
+      user: {},
+      applies: 'live',
+      secrets: [],
+      revision: 0,
+    }
+    const mutate = vi.fn((_payload: unknown) => Promise.resolve(ok(wireNamespaces()[0])))
+    const { face } = scriptedFace({ mutate })
+    const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
+
+    render(<ProviderEditor
+      provider="tencent-internal"
+      displayName="Tencent CodeBuddy"
+      namespace={namespace}
+      settingsPath={[]}
+      api={face as never}
+      t={t}
+      readOnly={false}
+      onClose={vi.fn()}
+    />)
+
+    fireEvent.click(screen.getByText(en.customized))
+    fireEvent.click(screen.getByText(en.addModel))
+    const ids = screen.getAllByLabelText(new RegExp(en.modelId))
+    fireEvent.change(ids[2] as HTMLInputElement, { target: { value: 'auto' } })
+    fireEvent.click(screen.getByText(en.apply))
+
+    await screen.findByText(`Model 3: ${en.modelIdDuplicate}`)
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
   it('applies customized deepseek fields as path ops', async () => {
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(ok(wireNamespaces()[0]))),
@@ -484,25 +680,25 @@ describe('ModelsSection', () => {
   it('validates every adapter-owned model catalog invariant', () => {
     expect(modelDrafts(undefined)).toEqual([])
     expect(modelDrafts([null, 'bad', { id: 'ok' }])).toEqual([{}, {}, { id: 'ok' }])
-    expect(validateDeepSeekModels([{}])).toEqual({ index: 0, key: 'modelIdRequired' })
-    expect(validateDeepSeekModels([{ id: 'same' }, { id: 'same' }]))
+    expect(validateModelRows([{}])).toEqual({ index: 0, key: 'modelIdRequired' })
+    expect(validateModelRows([{ id: 'same' }, { id: 'same' }]))
       .toEqual({ index: 1, key: 'modelIdDuplicate' })
-    expect(validateDeepSeekModels([{ id: 'model', name: '' }]))
+    expect(validateModelRows([{ id: 'model', name: '' }]))
       .toEqual({ index: 0, key: 'modelNameInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', contextWindow: null }]))
+    expect(validateModelRows([{ id: 'model', contextWindow: null }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 1.5 }]))
+    expect(validateModelRows([{ id: 'model', contextWindow: 1.5 }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 0 }]))
+    expect(validateModelRows([{ id: 'model', contextWindow: 0 }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 1 }])).toBeUndefined()
-    expect(validateDeepSeekModels([{ id: 'model', maxTokens: null }]))
+    expect(validateModelRows([{ id: 'model', contextWindow: 1 }])).toBeUndefined()
+    expect(validateModelRows([{ id: 'model', maxTokens: null }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 1.5 }]))
+    expect(validateModelRows([{ id: 'model', maxTokens: 1.5 }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 0 }]))
+    expect(validateModelRows([{ id: 'model', maxTokens: 0 }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 8192 }])).toBeUndefined()
+    expect(validateModelRows([{ id: 'model', maxTokens: 8192 }])).toBeUndefined()
   })
 
   it('reads context windows written as counts, thousands, or millions', () => {
@@ -760,8 +956,8 @@ describe('ModelsSection', () => {
 
     // An id that is only whitespace is as absent as an empty one, and a padded
     // id is a duplicate of its trimmed twin.
-    expect(validateDeepSeekModels([{ id: '   ' }])).toEqual({ index: 0, key: 'modelIdRequired' })
-    expect(validateDeepSeekModels([{ id: 'model' }, { id: 'model ' }]))
+    expect(validateModelRows([{ id: '   ' }])).toEqual({ index: 0, key: 'modelIdRequired' })
+    expect(validateModelRows([{ id: 'model' }, { id: 'model ' }]))
       .toEqual({ index: 1, key: 'modelIdDuplicate' })
   })
 

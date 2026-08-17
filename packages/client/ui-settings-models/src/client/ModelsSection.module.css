@@ -297,6 +297,22 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* A caption under a credential field pointing at where its key comes from;
+   the whole line is the link, so it takes the link tone. */
+.keyHint {
+  margin: 0;
+  width: fit-content;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-state-business-primary);
+  text-decoration: none;
+}
+
+.keyHint:hover,
+.keyHint:focus {
+  text-decoration: underline;
+}
+
 .editorActions {
   display: flex;
   justify-content: flex-end;
@@ -452,6 +468,64 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.modelCatalogActions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.codeBuddyModelList {
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+}
+
+.codeBuddyModelRow + .codeBuddyModelRow {
+  border-top: 1px solid var(--dsw-alias-border-l2);
+}
+
+.codeBuddyModelLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.codeBuddyModelLabel:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.codeBuddyModelIdentity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.codeBuddyModelName,
+.codeBuddyModelId {
+  overflow-wrap: anywhere;
+}
+
+.codeBuddyModelName {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.codeBuddyModelId {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
 }
 
 .modelEntry {

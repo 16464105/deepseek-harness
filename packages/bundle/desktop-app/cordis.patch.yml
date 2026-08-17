@@ -1,0 +1,29 @@
+# Desktop application layer over dsh-base + dsh-web-app. The Electron main
+# process owns window lifecycle while the existing Web UI stays the one client.
+
+- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 0
+
+- id: web-runtime
+  config:
+    printUrl: false
+    surfaceContext: false
+    trustedHosts: []
+
+- id: connection
+  config:
+    trustedHosts: []
+
+- id: client-hmr
+  disabled: true
+
+- id: agent-default-model
+  config:
+    provider: tencent-internal
+    model: gpt-5.6-sol
+
+- insert:
+    - id: llm-tencent-codebuddy
+      name: '@deepseek-ai/dsh-llm-tencent-codebuddy'

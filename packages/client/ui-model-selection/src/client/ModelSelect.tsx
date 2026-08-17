@@ -16,12 +16,14 @@ import {
   type KeyboardEvent, type FocusEvent,
 } from 'react'
 import clsx from 'clsx'
-import type { ModelReasoningEffort, ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
+import type {
+  ModelCatalogModel, ModelReasoningEffort, ModelSelection,
+} from '@deepseek-ai/dsh-api-remotes/client'
 import {
   IconCheckOutline16, IconChevronDownOutline14, IconChevronRightOutline14,
   IconWarningOutline16, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
@@ -36,6 +38,11 @@ interface EffortChoice {
   description?: string
 }
 
+/** Whether an adapter explicitly declares that one model rejects image input. */
+function rejectsImage(model: ModelCatalogModel | undefined): boolean {
+  return model?.inputModalities !== undefined && !model.inputModalities.includes('image')
+}
+
 /**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
@@ -43,8 +50,8 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, t }:
-  ModelSelectInjected & { locked: boolean } & PropsLocale<'model'>,
+  { locked, available, directory, load, select, useInput, t }:
+  ModelSelectInjected & { locked: boolean } & Pick<SessionStandardProps, 'useInput'> & PropsLocale<'model'>,
 ) {
   const state = useSyncExternalStore(
     fn => directory.subscribe(fn),
@@ -52,6 +59,7 @@ export function ModelSelect(
   )
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
+  const draftRequiresImage = useInput(input => input.imageIds.length > 0)
   // The in-menu error strip serves catalog loads (its Retry re-runs the
   // load); a rejected SELECTION announces through the transient toast
   // instead, so the strip renders only while the latest failure-capable
@@ -80,6 +88,8 @@ export function ModelSelect(
     ? -1
     : choices.findIndex(c => c.selection.provider === state.current?.provider && c.selection.model === state.current.model)
   const currentChoice = choices[selectedIndex]
+  const imageRequired = state.requiresImageInput || draftRequiresImage
+  const currentRejectsImage = rejectsImage(currentChoice?.model)
   const reasoning = currentChoice?.model.reasoning
   const effectiveEffort = state.current?.reasoningEffort ?? reasoning?.defaultEffort
   const effortLabel = reasoning === undefined
@@ -101,6 +111,12 @@ export function ModelSelect(
       })),
     ], [reasoning, t])
   const busy = state.status === 'selecting'
+
+  useEffect(() => {
+    if (!available || locked || !imageRequired || !currentRejectsImage) return
+    setOpen(true)
+    setPane('model')
+  }, [available, locked, imageRequired, currentRejectsImage])
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -268,6 +284,9 @@ export function ModelSelect(
 
           {pane === 'model' && (
             <>
+              {imageRequired && (
+                <div className={css.requirement}>{t('status.imageRequired')}</div>
+              )}
               {state.status === 'loading' && (
                 <div className={css.status}>{t('status.loading')}</div>
               )}
@@ -291,6 +310,7 @@ export function ModelSelect(
                       <div className={css.groupTitle} id={headingId}>{group.name}</div>
                       {group.models.map((model) => {
                         const selected = state.current?.provider === group.id && state.current.model === model.id
+                        const imageUnavailable = imageRequired && rejectsImage(model)
                         return (
                           <button
                             ref={itemRef()}
@@ -299,14 +319,20 @@ export function ModelSelect(
                             aria-checked={selected}
                             className={clsx(css.option, selected && css.selected)}
                             key={model.id}
-                            title={model.name}
-                            disabled={busy}
+                            title={imageUnavailable ? t('capability.imageUnavailable') : model.name}
+                            disabled={busy || imageUnavailable}
                             onClick={() => { choose({ provider: group.id, model: model.id }) }}
                           >
                             <span className={css.optionCopy}>
                               <span className={css.modelName}>{model.name}</span>
                               {model.description !== undefined && (
                                 <span className={css.description}>{model.description}</span>
+                              )}
+                              {model.inputModalities?.includes('image') === true && (
+                                <span className={css.capability}>{t('capability.image')}</span>
+                              )}
+                              {imageUnavailable && (
+                                <span className={css.description}>{t('capability.imageUnavailable')}</span>
                               )}
                             </span>
                             <span className={css.check}>

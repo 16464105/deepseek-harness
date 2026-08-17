@@ -1,0 +1,51 @@
+- group "待发送图片":
+  - button "draft.png":
+    - img "draft.png"
+  - button "移除图片 draft.png":
+    - img
+- textbox "当前模型不支持图片，请选择支持图片的模型" [disabled]
+- button "命令" [disabled]:
+  - img
+- button "访问模式，当前：Workspace Write" [disabled]: Workspace Write
+- button "选择模型，当前 Echo" [expanded]:
+  - text: Echo
+  - img
+- menu "模型与推理等级":
+  - text: 请选择支持图片的模型继续
+  - group "DeepSeek":
+    - text: DeepSeek
+    - menuitemradio "DeepSeek-V4-Flash"
+  - group "Tencent CodeBuddy":
+    - text: Tencent CodeBuddy
+    - menuitemradio "Auto 支持图片"
+    - menuitemradio "Hy3 支持图片"
+    - menuitemradio "HR敏感数据（L4）专用模型 支持图片"
+    - menuitemradio "Echo 不支持当前对话中的图片" [checked] [disabled]:
+      - text: Echo 不支持当前对话中的图片
+      - img
+    - menuitemradio "GLM-5.2 支持图片"
+    - menuitemradio "GLM-5v-Turbo 支持图片"
+    - menuitemradio "Kimi-K3 支持图片"
+    - menuitemradio "Kimi-K2.7-Code 支持图片"
+    - menuitemradio "Kimi-K2.6 支持图片"
+    - menuitemradio "MiniMax-M3 支持图片"
+    - menuitemradio "Claude-Opus-5 支持图片"
+    - menuitemradio "Claude-Sonnet-5 支持图片"
+    - menuitemradio "Claude-Sonnet-5-1M 支持图片"
+    - menuitemradio "Claude-Opus-4.8 (1M context) 支持图片"
+    - menuitemradio "Claude-Opus-4.8 支持图片"
+    - menuitemradio "Claude-Opus-4.7 (1M context) 支持图片"
+    - menuitemradio "Claude-Opus-4.7 支持图片"
+    - menuitemradio "Claude-Opus-4.6 (1M context) 支持图片"
+    - menuitemradio "Claude-Sonnet-4.6 (1M context) 支持图片"
+    - menuitemradio "Claude-Opus-4.6 支持图片"
+    - menuitemradio "GPT-5.6-Sol 支持图片"
+    - menuitemradio "GPT-5.6-Terra 支持图片"
+    - menuitemradio "GPT-5.6-Luna 支持图片"
+    - menuitemradio "GPT-5.5 支持图片"
+    - menuitemradio "GPT-5.4 支持图片"
+    - menuitemradio "GPT-5.3-Codex 支持图片"
+    - menuitemradio "Gemini-3.5-Flash 支持图片"
+    - menuitemradio "Deepseek-V4-Flash 支持图片"
+    - menuitemradio "Deepseek-V4-Pro-0813 支持图片"
+- button "发送消息" [disabled]

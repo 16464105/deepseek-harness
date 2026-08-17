@@ -38,10 +38,14 @@ function writePackage(
 }
 
 /** Construct the node-half service and capture its plugin-bundle route. */
-function constructWithRoute(packageNames: string[]): { service: ClientModuleRegistry; route: WebRoute } {
+function constructWithRoute(
+  packageNames: string[],
+  options: { baseUrl?: string; resolveImport?: (specifier: string, parentURL: string) => string } = {},
+): { service: ClientModuleRegistry; route: WebRoute } {
   const ctx = new Context()
-  ctx.baseUrl = pathToFileURL(root!).href + '/'
+  ctx.baseUrl = options.baseUrl ?? pathToFileURL(root!).href + '/'
   ctx.provide('loader', {
+    resolveImport: options.resolveImport,
     *entries() {
       for (const packageName of packageNames) {
         yield { options: { name: packageName }, fiber: {}, disabled: false }
@@ -69,6 +73,28 @@ function construct(packageNames: string[]): ClientModuleRegistry {
 }
 
 describe('client bundle activation', () => {
+  it('uses the Loader host resolver when the writable config lives outside the application tree', () => {
+    const packageName = '@fixture/host-resolved'
+    const clientPath = writePackage(packageName)
+    mkdirSync(dirname(clientPath), { recursive: true })
+    writeFileSync(clientPath, 'module.exports = {}\n')
+    const externalConfig = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-client-config-')))
+    const parentURL = pathToFileURL(externalConfig).href + '/'
+    try {
+      const service = constructWithRoute([packageName], {
+        baseUrl: parentURL,
+        resolveImport: (specifier, parent) => {
+          expect(specifier).toBe(`${packageName}/package.json`)
+          expect(parent).toBe(parentURL)
+          return pathToFileURL(join(dirname(clientPath), '..', 'package.json')).href
+        },
+      }).service
+      expect(service.graph().entries.map(entry => entry.id)).toEqual([packageName])
+    } finally {
+      rmSync(externalConfig, { recursive: true, force: true })
+    }
+  })
+
   it('allows sibling dsh roles', () => {
     const currentName = '@fixture/current-client-field'
     const clientPath = writePackage(currentName, {

@@ -210,7 +210,12 @@ export type OnboardingReadiness =
   | { kind: 'loading' }
   | { kind: 'adapter-absent' }
   | { kind: 'provider-ready' }
-  | { kind: 'credential-missing' }
+  | {
+    kind: 'credential-missing'
+    provider: string
+    settingsNs: string
+    settingsPath: readonly string[]
+  }
   | {
     kind: 'unavailable'
     reason:
@@ -225,9 +230,9 @@ export type OnboardingReadiness =
  * Project first-run readiness from the provider/settings/credential join used
  * by the Models page. The step exists to leave the user with a model to talk
  * to, so ANY usable provider ends it; only when none exists does the official
- * DeepSeek route — the one route the prompt can offer a key field for — decide
- * whether prompting can help. A missing official configurable-provider
- * declaration means the adapter is not repairable by navigating to Models.
+ * supported key-only route decides whether prompting can help. Tencent
+ * CodeBuddy is first when both desktop targets are composed, with official
+ * DeepSeek as the fallback for deployments that omit Tencent.
  * @param state - current shared Models join snapshot.
  * @returns the onboarding state without reading a parallel fact source.
  */
@@ -242,10 +247,15 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+  const targets = [
+    { provider: 'tencent-internal', settingsNs: 'llm-tencent-codebuddy' },
+    { provider: 'deepseek-official', settingsNs: 'llm-deepseek' },
+  ] as const
+  const candidates = targets.flatMap(target => state.rows.filter(candidate =>
+    candidate.entry.provider === target.provider
+    && candidate.entry.settingsNs === target.settingsNs
+    && candidate.entry.settingsPath.length === 0))
+  const row = candidates.find(candidate => candidate.entry.active) ?? candidates[0]
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {
@@ -273,5 +283,10 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
       reason: 'credential-read-only',
     }
   }
-  return { kind: 'credential-missing' }
+  return {
+    kind: 'credential-missing',
+    provider: row.entry.provider,
+    settingsNs: row.entry.settingsNs,
+    settingsPath: row.entry.settingsPath,
+  }
 }

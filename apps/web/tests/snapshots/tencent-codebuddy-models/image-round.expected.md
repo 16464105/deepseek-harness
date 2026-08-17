@@ -1,0 +1,44 @@
+- banner:
+  - navigation "会话层级":
+    - button "请只回答图片中的文字。" [disabled]
+  - img
+  - text: 标准模式
+  - button "Session log":
+    - text: Session log
+    - img
+  - tablist:
+    - tab "对话" [selected]
+    - tab "轨迹"
+- button "draft.png，点击查看原图":
+  - img "draft.png"
+- text: 请只回答图片中的文字。 {{clock}}
+- button "复制":
+  - img
+- button "上下文注入 AGENTS.md":
+  - img
+  - img
+  - text: 上下文注入 AGENTS.md
+- button "上下文注入 @deepseek-ai/dsh-system-prompt":
+  - img
+  - img
+  - text: 上下文注入 @deepseek-ai/dsh-system-prompt
+- paragraph: 探索未至之境 预览版
+- button "复制":
+  - img
+- button "好的回答":
+  - img
+- button "有问题的回答":
+  - img
+- button "在新对话中分支":
+  - img
+- text: {{clock}} 用时 {{duration}} 首 token {{duration}} {{throughput}} tok/s
+- textbox "给智能体发消息"
+- button "命令":
+  - img
+- button "访问模式，当前：Workspace Write": Workspace Write
+- button "选择模型，当前 Auto，推理等级 Default":
+  - text: Auto Default
+  - img
+- button "上下文已用 0%"
+- button "发送消息" [disabled]
+- text: 1 轮 · 1 步 LLM {{duration}} 首 token 平均 {{duration}} · {{throughput}} tok/s 缓存命中 0% 输入 3 tok · 输出 8 tok

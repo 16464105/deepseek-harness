@@ -38,7 +38,7 @@ const CAPACITY_SCALE = { k: 1_000, m: 1_000_000 } as const
  * zeroes. The stored value stays a plain token count.
  * @param text - raw field text.
  * @returns the count; `undefined` when blank (inherit), `NaN` when unreadable
- * (rejected by {@link validateDeepSeekModels} before any write).
+ * (rejected by {@link validateModelRows} before any write).
  */
 export function parseCapacity(text: string): number | undefined {
   const trimmed = text.trim()
@@ -69,7 +69,7 @@ export function formatCapacity(value: number): string {
 }
 
 /** A localized validation failure for one user-owned model array. */
-export interface DeepSeekModelsValidationFailure {
+export interface ModelRowsValidationFailure {
   /** Zero-based model position. */
   index: number
   /** Message key owned by the Models settings section. */
@@ -91,7 +91,7 @@ export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
  * @param value - user-owned `models` value, or undefined while inherited.
  * @returns the first invalid row, or undefined when the adapter will accept it.
  */
-export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidationFailure | undefined {
+export function validateModelRows(value: unknown): ModelRowsValidationFailure | undefined {
   if (value === undefined) return undefined
   const models = modelDrafts(value)
   const seen = new Set<string>()
