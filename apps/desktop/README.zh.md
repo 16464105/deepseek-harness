@@ -48,7 +48,7 @@ npx --yes pnpm@11.7.0 run desktop:package:dir
 
 ## GitHub Actions 发布
 
-`Desktop macOS` 工作流通过两个独立的原生矩阵任务构建两种 DMG：Apple 芯片使用 `macos-14`，Intel 使用 `macos-15-intel`。桌面 manifest 显式声明两种架构的平台包，因为 pnpm 11 不会为 Electron Builder 安装传递性平台二进制。手动运行前，需要先配置以下仓库 Actions secrets：
+`Desktop macOS` 工作流通过两个独立的原生矩阵任务构建两种 DMG：Apple 芯片使用 `macos-14`，Intel 使用 `macos-15-intel`。桌面 manifest 显式声明两种架构的平台包，因为 pnpm 11 不会为 Electron Builder 安装传递性平台二进制。手动运行前，需要先在 GitHub 的 `macos-signing` environment 中配置以下 secrets：
 
 - `MAC_CERTIFICATE_P12_BASE64`：将 Developer ID Application 证书与私钥导出为有密码保护的 PKCS#12 文件，再进行 Base64 编码。
 - `MAC_CERTIFICATE_PASSWORD`：PKCS#12 导出密码。
@@ -56,7 +56,7 @@ npx --yes pnpm@11.7.0 run desktop:package:dir
 - `APPLE_APP_SPECIFIC_PASSWORD`：该 Apple ID 的 App 专用密码。
 - `APPLE_TEAM_ID`：签名身份所属的 Apple Developer Team ID。
 
-可在 GitHub Actions 页面手动运行工作流，也可推送 `desktop-v*` tag 触发。每个任务都会构建仓库、检查桌面运行时依赖闭包、签名并公证应用、签名 DMG、提交最终 DMG 公证、为两个产物装订票据、挂载安装包，并验证 Gatekeeper 是否接受。可下载的工作流产物包含一个对应架构的 DMG 与其 SHA-256 文件。
+可在 GitHub Actions 页面手动运行工作流，也可推送 `desktop-v*` tag 触发。每个任务都会构建仓库、检查桌面运行时依赖闭包、签名并公证应用、签名 DMG、提交最终 DMG 公证、为两个产物装订票据、挂载安装包，并验证 Gatekeeper 是否接受。只有当 `dmgbuild` 报告临时 DeepSeek Harness 卷在卸载时仍被占用，打包才会重试；其他失败会立即退出。可下载的工作流产物包含一个对应架构的 DMG 与其 SHA-256 文件。
 
 ## 窗口与 Host 生命周期
 

@@ -20,7 +20,7 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 **Loader 导入解析是逐实例的 Host hook，并由每棵 EntryTree 调用。** vendored Loader 公开 `resolveImport(specifier, parentURL, attributes)`；`EntryTree.import()` 会在私有适配器或原生 dynamic import 之前调用它。封闭运行时传入 `bareModuleBaseUrl` 时，app boot 会提供一个基于 `createRequire(installAnchor).resolve()` 的 resolver，把裸包名转换为绝对 file URL，同时保留相对配置的导入。client 模块发现会使用同一 hook 解析包元数据，而不是沿着可写 profile 的 symlink 进入 Electron 归档。受维护的 profile module fallback 仍是让这些包名可解析的已安装依赖闭包。桌面部署清单会显式提供该闭包中的每个必需 workspace peer，仓库运行时闭包门禁会审计两个可执行部署根。该机制覆盖嵌套树和运行时创建的树，并且在有无 Node 私有适配器时都能工作，包括可写 profile 位于应用目录之外的 Electron 归档。
 
-**macOS 发行使用按架构分离的 ASAR DMG。** 一个打包入口会生成 `arm64` 与 `x64` DMG，并在每个文件名中标明架构；构建不会生成 Universal 应用。Electron Builder 会归档 JavaScript 与运行时资源，排除 TypeScript、source map 和包根目录的开发材料，并且只解包必须以普通文件存在的原生库与可执行文件。按架构过滤器只保留匹配的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 包。Developer ID 签名使用构建主机上的可用身份；对外分发要求同一产物完成 Apple 公证，而不是要求接收者关闭 Gatekeeper 隔离。
+**macOS 发行使用按架构分离的 ASAR DMG。** 一个打包入口会生成 `arm64` 与 `x64` DMG，并在每个文件名中标明架构；构建不会生成 Universal 应用。Electron Builder 会归档 JavaScript 与运行时资源，排除 TypeScript、source map 和包根目录的开发材料，并且只解包必须以普通文件存在的原生库与可执行文件。按架构过滤器只保留匹配的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 包。GitHub 任务从 `macos-signing` environment 读取签名与公证 secrets。只有当 `dmgbuild` 无法卸载被占用的临时 DeepSeek Harness 卷时，打包才会重试，并在两次尝试之间强制卸载该应用的挂载点；其他失败会立即退出。Developer ID 签名使用构建主机上的可用身份；对外分发要求同一产物完成 Apple 公证，而不是要求接收者关闭 Gatekeeper 隔离。
 
 **Electron 窗口拒绝 renderer 提权。** 应用启用上下文隔离和 Chromium sandbox，关闭 Node 集成，把窗口内导航限制在应用 origin，并且只把普通外部 HTTP(S) URL 交给系统浏览器。
 

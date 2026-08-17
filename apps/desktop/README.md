@@ -48,7 +48,7 @@ The desktop package is the executable deploy root: its production dependencies e
 
 ## GitHub Actions release
 
-The `Desktop macOS` workflow builds the two DMGs as separate native matrix jobs: Apple silicon runs on `macos-14`, and Intel runs on `macos-15-intel`. The desktop manifest declares both architectures' platform packages explicitly because pnpm 11 does not install transitive platform binaries for Electron Builder. Configure these repository Actions secrets before dispatching it:
+The `Desktop macOS` workflow builds the two DMGs as separate native matrix jobs: Apple silicon runs on `macos-14`, and Intel runs on `macos-15-intel`. The desktop manifest declares both architectures' platform packages explicitly because pnpm 11 does not install transitive platform binaries for Electron Builder. Configure these secrets in the `macos-signing` GitHub environment before dispatching it:
 
 - `MAC_CERTIFICATE_P12_BASE64`: the Developer ID Application certificate and private key exported as a password-protected PKCS#12 file, then Base64 encoded.
 - `MAC_CERTIFICATE_PASSWORD`: the PKCS#12 export password.
@@ -56,7 +56,7 @@ The `Desktop macOS` workflow builds the two DMGs as separate native matrix jobs:
 - `APPLE_APP_SPECIFIC_PASSWORD`: an app-specific password for that Apple ID.
 - `APPLE_TEAM_ID`: the Apple Developer team identifier associated with the signing identity.
 
-Run the workflow manually from GitHub Actions, or push a `desktop-v*` tag. Each job builds the repository, verifies the desktop runtime dependency closure, signs and notarizes the application, signs the DMG, submits the final DMG for notarization, staples both artifacts, mounts the installer, and verifies Gatekeeper acceptance. The downloadable workflow artifact contains one architecture-specific DMG and its SHA-256 file.
+Run the workflow manually from GitHub Actions, or push a `desktop-v*` tag. Each job builds the repository, verifies the desktop runtime dependency closure, signs and notarizes the application, signs the DMG, submits the final DMG for notarization, staples both artifacts, mounts the installer, and verifies Gatekeeper acceptance. Packaging retries only when `dmgbuild` reports that a temporary DeepSeek Harness volume remains busy during detach; other failures exit immediately. The downloadable workflow artifact contains one architecture-specific DMG and its SHA-256 file.
 
 ## Window and Host lifecycle
 

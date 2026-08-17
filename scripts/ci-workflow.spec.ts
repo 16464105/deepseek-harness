@@ -7,6 +7,26 @@ const root = resolve(import.meta.dirname, '..')
 const runnerPrivatePnpmDestination = '${{ runner.temp }}/setup-pnpm'
 
 describe('CI workflow', () => {
+  it('binds desktop packaging to its signing environment and retries only busy DMG detaches', () => {
+    const workflow = loadWorkflow('.github/workflows/desktop-macos.yml')
+    const packageJob = workflowJob(workflow, 'package')
+    if (!Array.isArray(packageJob.steps)) throw new TypeError('desktop package job must define steps')
+
+    const packageStep = packageJob.steps.find(
+      (step): step is Record<string, unknown> & { run: string } => (
+        isRecord(step) && step.name === 'Package architecture-specific DMG' && typeof step.run === 'string'
+      ),
+    )
+    if (packageStep == null) throw new TypeError('desktop package job must define its packaging step')
+
+    expect(packageJob.environment).toBe('macos-signing')
+    expect(packageStep.run).toContain('for attempt in 1 2 3')
+    expect(packageStep.run).toContain('Unable to detach device cleanly:.*Resource busy')
+    expect(packageStep.run).toContain('find /Volumes -maxdepth 1 -type d -name \'DeepSeek Harness*\' -print')
+    expect(packageStep.run).toContain('hdiutil detach -force "${volume}"')
+    expect(packageStep.run).toContain('exit "${status}"')
+  })
+
   it('isolates every pnpm action setup destination per runner', () => {
     const workflow: unknown = yaml.load(readFileSync(resolve(root, '.github/workflows/ci.yml'), 'utf8'))
     if (!isRecord(workflow) || !isRecord(workflow.jobs)) throw new TypeError('CI workflow must define jobs')
