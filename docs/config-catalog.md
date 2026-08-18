@@ -1336,10 +1336,14 @@ Requires: `tools`
 export interface McpManagerOptions {
   /** Absolute path of the dedicated MCP JSON document (tests point it at a temp file). */
   documentPath?: string
+  /** Watch the document and hot-publish external edits; defaults to true. Tests pass false. */
+  watch?: boolean
+  /** Watcher write-settle window in milliseconds; defaults to 100. */
+  debounceMs?: number
 }
 ```
 
-Source: [`packages/mcp/mcp-manager/src/index.ts:29`](../packages/mcp/mcp-manager/src/index.ts)
+Source: [`packages/mcp/mcp-manager/src/index.ts:30`](../packages/mcp/mcp-manager/src/index.ts)
 
 <a id="deepseek-aidsh-message-feedback"></a>
 

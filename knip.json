@@ -740,6 +740,11 @@
         "@deepseek-ai/.+"
       ]
     },
+    "apps/desktop": {
+      "ignoreDependencies": [
+        "@deepseek-ai/.+"
+      ]
+    },
     "packages/client/modules": {
       "entry": [
         "tests/**/*.spec.ts"
@@ -791,6 +796,11 @@
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"
+      ]
+    },
+    "packages/bundle/desktop-app": {
+      "ignoreDependencies": [
+        "@deepseek-ai/.+"
       ]
     }
   }

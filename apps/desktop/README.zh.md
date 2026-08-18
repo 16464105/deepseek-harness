@@ -42,9 +42,21 @@ npx --yes pnpm@11.7.0 run desktop:package:mac:x64
 npx --yes pnpm@11.7.0 run desktop:package:dir
 ```
 
-根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/web/public/favicon.svg` 生成各平台的应用图标。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep 和 node-pty helper 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制。TypeScript 源码、source map，以及包根目录的测试、文档和示例目录不会进入产物。
+根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/web/public/favicon.svg` 生成各平台的应用图标。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep 和 node-pty helper 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制，并排除仅适用于 Linux 的 Landlock 包。TypeScript 源码、类型声明、source map，以及包根目录的测试、文档和示例目录不会进入产物。
 
 桌面包是可执行部署根：其生产依赖会显式提供交付 profile 可达的每个必需 workspace peer。`pnpm run verify-runtime-closure` 会在发布前检查该闭包，避免 Electron Builder 静默遗漏插件的服务包。
+
+## GitHub Actions 发布
+
+`Desktop macOS` 工作流通过两个独立的原生矩阵任务构建两种 DMG：Apple 芯片使用 `macos-14`，Intel 使用 `macos-15-intel`。桌面 manifest 显式声明两种架构的平台包，因为 pnpm 11 不会为 Electron Builder 安装传递性平台二进制。手动运行前，需要先配置以下仓库 Actions secrets：
+
+- `MAC_CERTIFICATE_P12_BASE64`：将 Developer ID Application 证书与私钥导出为有密码保护的 PKCS#12 文件，再进行 Base64 编码。
+- `MAC_CERTIFICATE_PASSWORD`：PKCS#12 导出密码。
+- `APPLE_ID`：用于公证的 Apple 开发者账号。
+- `APPLE_APP_SPECIFIC_PASSWORD`：该 Apple ID 的 App 专用密码。
+- `APPLE_TEAM_ID`：签名身份所属的 Apple Developer Team ID。
+
+可在 GitHub Actions 页面手动运行工作流，也可推送 `desktop-v*` tag 触发。每个任务都会构建仓库、检查桌面运行时依赖闭包、签名并公证应用、签名 DMG、提交最终 DMG 公证、为两个产物装订票据、挂载安装包，并验证 Gatekeeper 是否接受。可下载的工作流产物包含一个对应架构的 DMG 与其 SHA-256 文件。
 
 ## 窗口与 Host 生命周期
 
@@ -52,7 +64,7 @@ BrowserWindow 启用上下文隔离和 Chromium sandbox，关闭 Node 集成，�
 
 ## 已知限制
 
-- **可分发的 macOS DMG 必须同时完成 Developer ID 签名和公证**：Electron Builder 会使用可用的签名身份，并在配置 Apple 凭据后尝试公证。构建日志若显示跳过签名或公证，该产物只能用于本地测试；不要要求接收者通过清除隔离属性来绕过 Gatekeeper。
+- **可分发的 macOS DMG 必须为应用和最终磁盘镜像完成 Developer ID 签名、公证与票据装订**：缺少凭据，或签名、公证、票据、挂载后应用、Gatekeeper 任一检查失败时，GitHub 工作流都会失败。本地打包产物只用于检查；不要要求接收者通过清除隔离属性来绕过 Gatekeeper。
 - **腾讯访问仍依赖企业网络与有效的 CodeBuddy Key**：成功存储密钥只证明本地配置完成；认证和网络可达性由提供方在首次请求时判定。
 - **腾讯模型 catalog 是随包交付的快照** — 腾讯更改网关模型时，需要通过下一次包发布或 Models 卡片上的 `models` 覆盖到达本应用。
 - **renderer 使用回环 HTTP 载体**：随机端口只在进程内使用且不会打印，但该应用没有用 Electron IPC 替换 Web 载体。

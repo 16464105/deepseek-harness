@@ -83,9 +83,9 @@
     "@deepseek-ai/dsh-launch-environment": "workspace:^",
     "@deepseek-ai/dsh-llm": "workspace:^",
     "@deepseek-ai/dsh-llm-retry": "workspace:^",
-    "@deepseek-ai/dsh-message-feedback": "workspace:^",
     "@deepseek-ai/dsh-mcp-client": "workspace:^",
     "@deepseek-ai/dsh-mcp-manager": "workspace:^",
+    "@deepseek-ai/dsh-message-feedback": "workspace:^",
     "@deepseek-ai/dsh-output-retention": "workspace:^",
     "@deepseek-ai/dsh-permission-presets": "workspace:^",
     "@deepseek-ai/dsh-plan-mode": "workspace:^",
@@ -128,6 +128,16 @@
     "dsh-browser": "^0.1.0",
     "dsh-vision-router": "^1.6.1"
   },
+  "optionalDependencies": {
+    "@img/sharp-darwin-arm64": "0.35.3",
+    "@img/sharp-darwin-x64": "0.35.3",
+    "@koromix/koffi-darwin-arm64": "3.1.1",
+    "@koromix/koffi-darwin-x64": "3.1.1",
+    "@vscode/ripgrep-darwin-arm64": "1.18.0",
+    "@vscode/ripgrep-darwin-x64": "1.18.0",
+    "node-addon-require-builtin-darwin-arm64": "0.1.4",
+    "node-addon-require-builtin-darwin-x64": "0.1.4"
+  },
   "devDependencies": {
     "@types/node": "^22.20.0",
     "electron": "43.4.0",
@@ -158,7 +168,12 @@
       "lib/**",
       "package.json",
       "!**/*.ts",
+      "!**/*.tsx",
       "!**/*.map",
+      "!**/*.d.ts",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/HISTORY*",
       "!node_modules/*/{test,tests,__tests__,docs,doc,example,examples}/**",
       "!node_modules/@*/*/{test,tests,__tests__,docs,doc,example,examples}/**"
     ],
@@ -184,13 +199,19 @@
         "lib/**",
         "package.json",
         "!**/*.ts",
+        "!**/*.tsx",
         "!**/*.map",
+        "!**/*.d.ts",
+        "!node_modules/**/README*",
+        "!node_modules/**/CHANGELOG*",
+        "!node_modules/**/HISTORY*",
         "!node_modules/*/{test,tests,__tests__,docs,doc,example,examples}/**",
         "!node_modules/@*/*/{test,tests,__tests__,docs,doc,example,examples}/**",
         "!node_modules/@img/sharp-!(darwin-${arch}|libvips-*)/**",
         "!node_modules/@img/sharp-libvips-!(darwin-${arch})/**",
         "!node_modules/@koromix/koffi-!(darwin-${arch})/**",
         "!node_modules/@vscode/ripgrep-!(darwin-${arch})/**",
+        "!node_modules/@deepseek-ai/node-addon-landlock-run-*/**",
         "!node_modules/node-addon-require-builtin-!(darwin-${arch})/**",
         "!node_modules/node-pty/build/**",
         "!node_modules/node-pty/prebuilds/!(darwin-${arch})/**"
@@ -200,6 +221,9 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true
+    },
+    "dmg": {
+      "sign": true
     },
     "win": {
       "target": "nsis"

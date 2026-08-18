@@ -42,9 +42,21 @@ Build an unpacked application directory for the current architecture when inspec
 npx --yes pnpm@11.7.0 run desktop:package:dir
 ```
 
-The root commands build the complete repository first. Electron Builder writes artifacts under `apps/desktop/dist/` and derives every platform's application icon from `apps/web/public/favicon.svg`. JavaScript and runtime assets live in `app.asar`; only native addons, required dynamic libraries, ripgrep, and the node-pty helper remain in `app.asar.unpacked`. macOS packages retain only the target architecture's Sharp, Koffi, ripgrep, node-pty, and native-addon binaries. TypeScript sources, source maps, and package-root test, documentation, and example directories are excluded.
+The root commands build the complete repository first. Electron Builder writes artifacts under `apps/desktop/dist/` and derives every platform's application icon from `apps/web/public/favicon.svg`. JavaScript and runtime assets live in `app.asar`; only native addons, required dynamic libraries, ripgrep, and the node-pty helper remain in `app.asar.unpacked`. macOS packages retain only the target architecture's Sharp, Koffi, ripgrep, node-pty, and native-addon binaries, and omit Linux-only Landlock packages. TypeScript sources, declarations, source maps, and package-root test, documentation, and example directories are excluded.
 
 The desktop package is the executable deploy root: its production dependencies explicitly supply every required workspace peer reachable from the shipped profile. `pnpm run verify-runtime-closure` checks this closure before release so Electron Builder cannot silently omit a plugin's service packages.
+
+## GitHub Actions release
+
+The `Desktop macOS` workflow builds the two DMGs as separate native matrix jobs: Apple silicon runs on `macos-14`, and Intel runs on `macos-15-intel`. The desktop manifest declares both architectures' platform packages explicitly because pnpm 11 does not install transitive platform binaries for Electron Builder. Configure these repository Actions secrets before dispatching it:
+
+- `MAC_CERTIFICATE_P12_BASE64`: the Developer ID Application certificate and private key exported as a password-protected PKCS#12 file, then Base64 encoded.
+- `MAC_CERTIFICATE_PASSWORD`: the PKCS#12 export password.
+- `APPLE_ID`: the Apple developer account used for notarization.
+- `APPLE_APP_SPECIFIC_PASSWORD`: an app-specific password for that Apple ID.
+- `APPLE_TEAM_ID`: the Apple Developer team identifier associated with the signing identity.
+
+Run the workflow manually from GitHub Actions, or push a `desktop-v*` tag. Each job builds the repository, verifies the desktop runtime dependency closure, signs and notarizes the application, signs the DMG, submits the final DMG for notarization, staples both artifacts, mounts the installer, and verifies Gatekeeper acceptance. The downloadable workflow artifact contains one architecture-specific DMG and its SHA-256 file.
 
 ## Window and Host lifecycle
 
@@ -52,7 +64,7 @@ The BrowserWindow enables context isolation and the Chromium sandbox, disables N
 
 ## Known limitations
 
-- **A distributable macOS DMG requires both Developer ID signing and notarization** — Electron Builder uses an available signing identity and attempts notarization when Apple credentials are configured. Treat a build that reports skipped signing or notarization as local-only; do not ask recipients to bypass Gatekeeper by clearing quarantine attributes.
+- **A distributable macOS DMG requires Developer ID signing, notarization, and stapled tickets for both the application and final disk image** — the GitHub workflow fails if credentials are absent or any signature, notarization, staple, mounted-application, or Gatekeeper check fails. Treat local packaging output as inspection-only; do not ask recipients to bypass Gatekeeper by clearing quarantine attributes.
 - **Tencent access still depends on the corporate network and a valid CodeBuddy key** — storing a key proves only local configuration; the provider decides authentication and network reachability on the first request.
 - **The Tencent model catalog is a shipped snapshot** — Tencent changes to its gateway models reach this application through the next package release, or through a user `models` override on the Models card.
 - **The renderer uses a loopback HTTP carrier** — the random port is process-local and not printed, but this application does not replace the Web carrier with Electron IPC.

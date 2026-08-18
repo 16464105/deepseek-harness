@@ -1,0 +1,126 @@
+name: Desktop macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'desktop-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-macos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-15-intel
+    env:
+      TARGET_ARCH: ${{ matrix.arch }}
+      CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Require signing and notarization secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "::error::Required GitHub Actions secret for ${variable} is missing."
+              exit 1
+            fi
+          done
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and verify runtime closure
+        run: |
+          pnpm run build
+          pnpm run verify-runtime-closure
+
+      - name: Package architecture-specific DMG
+        run: pnpm --filter @deepseek-ai/dsh-desktop run "package:mac:${TARGET_ARCH}"
+
+      - name: Notarize, staple, and verify DMG
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dmgs=(apps/desktop/dist/*-mac-"${TARGET_ARCH}".dmg)
+          if [[ ${#dmgs[@]} -ne 1 ]]; then
+            echo "::error::Expected one ${TARGET_ARCH} DMG, found ${#dmgs[@]}."
+            exit 1
+          fi
+          dmg="${dmgs[0]}"
+
+          xcrun notarytool submit "${dmg}" \
+            --apple-id "${APPLE_ID}" \
+            --password "${APPLE_APP_SPECIFIC_PASSWORD}" \
+            --team-id "${APPLE_TEAM_ID}" \
+            --wait
+          xcrun stapler staple "${dmg}"
+          xcrun stapler validate "${dmg}"
+          codesign --verify --strict --verbose=2 "${dmg}"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "${dmg}"
+
+          mount_dir="${RUNNER_TEMP}/deepseek-harness-${TARGET_ARCH}"
+          mkdir -p "${mount_dir}"
+          hdiutil attach "${dmg}" -nobrowse -readonly -mountpoint "${mount_dir}"
+          trap 'hdiutil detach "${mount_dir}" >/dev/null || true' EXIT
+          app_bundle="$(find "${mount_dir}" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          if [[ -z "${app_bundle}" ]]; then
+            echo "::error::The DMG does not contain an application bundle."
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "${app_bundle}"
+          spctl --assess --type execute --verbose=4 "${app_bundle}"
+          xcrun stapler validate "${app_bundle}"
+          hdiutil detach "${mount_dir}"
+          trap - EXIT
+
+          checksum="${dmg}.sha256"
+          shasum -a 256 "${dmg}" > "${checksum}"
+          echo "dmg=${dmg}" >> "${GITHUB_OUTPUT}"
+          echo "checksum=${checksum}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload signed installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-macos-${{ matrix.arch }}
+          path: |
+            ${{ steps.verify.outputs.dmg }}
+            ${{ steps.verify.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 14
