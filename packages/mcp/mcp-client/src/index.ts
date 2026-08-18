@@ -24,6 +24,24 @@ import type {} from '@deepseek-ai/dsh-tools'
 export type { McpResult } from './tools.ts'
 export type { ReconnectConfig, ResolvedReconnectPolicy } from './connection.ts'
 
+/** Connection state published for trusted same-process management surfaces. */
+export interface McpConnectionStatus {
+  readonly serverName: string
+  readonly phase: 'connecting' | 'connected' | 'reconnecting' | 'failed'
+  readonly toolCount: number
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Publish a configured server's transport phase and discovered tool count to management consumers.
+     * @param status - Current state of one configured MCP server.
+     * @mode emit
+     */
+    'mcp/status'(status: McpConnectionStatus): void
+  }
+}
+
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'mcp-client'
 

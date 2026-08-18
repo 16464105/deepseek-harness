@@ -41,6 +41,23 @@ function otherRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
   }
 }
 
+function tencentRow(overrides: Partial<ProviderRow> = {}): ProviderRow {
+  return {
+    entry: {
+      provider: 'tencent-internal',
+      displayName: 'Tencent CodeBuddy',
+      settingsNs: 'llm-tencent-codebuddy',
+      settingsPath: [],
+      active: true,
+    },
+    configured: true,
+    removable: false,
+    apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY',
+    credential: missingCredential,
+    ...overrides,
+  }
+}
+
 function state(overrides: Partial<ModelsSettingsState> = {}): ModelsSettingsState {
   return {
     status: 'ready',
@@ -82,7 +99,21 @@ describe('onboardingReadiness', () => {
   })
 
   it('reports a missing writable effective credential', () => {
-    expect(onboardingReadiness(state())).toEqual({ kind: 'credential-missing' })
+    expect(onboardingReadiness(state())).toEqual({
+      kind: 'credential-missing',
+      provider: 'deepseek-official',
+      settingsNs: 'llm-deepseek',
+      settingsPath: [],
+    })
+  })
+
+  it('prefers Tencent when the desktop composition includes both supported targets', () => {
+    expect(onboardingReadiness(state({ rows: [row(), tencentRow()] }))).toEqual({
+      kind: 'credential-missing',
+      provider: 'tencent-internal',
+      settingsNs: 'llm-tencent-codebuddy',
+      settingsPath: [],
+    })
   })
 
   it('ends onboarding once any other registered provider can serve requests', () => {
@@ -90,7 +121,12 @@ describe('onboardingReadiness', () => {
     // A provider the user cannot reach yet leaves the prompt in place.
     expect(onboardingReadiness(state({
       rows: [row(), otherRow({ credential: missingCredential })],
-    }))).toEqual({ kind: 'credential-missing' })
+    }))).toEqual({
+      kind: 'credential-missing',
+      provider: 'deepseek-official',
+      settingsNs: 'llm-deepseek',
+      settingsPath: [],
+    })
   })
 
   it('accepts file and process-environment credentials without prompting', () => {

@@ -6,6 +6,7 @@
  * @module @deepseek-ai/dsh-app-boot
  */
 
+import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { parseEnv } from 'node:util'
@@ -478,7 +479,9 @@ function groupedDump(
  * @param absoluteConfigPath - absolute YAML or JSON configuration path.
  * @param patches - initial app and user patches, applied in order.
  * @param bareModuleBaseUrl - optional installed-host base for bare package
- * names; relative names continue to resolve beside the configuration file.
+ * names; relative names continue to resolve beside the configuration file,
+ * and a bare name the host cannot answer falls back to that file's own
+ * directory (the healed profile fallback) before failing.
  * @returns the created root Include entry, or `undefined` when a surface
  * disposed the whole tree (taking the Loader service with it) while the
  * transactional create was still settling entry lifecycle.
@@ -489,19 +492,31 @@ export async function mountRootInclude(
   patches: readonly PatchOptions[] = [],
   bareModuleBaseUrl?: string,
 ): Promise<Entry | undefined> {
-  ctx.loader.builtins.include = bareModuleBaseUrl === undefined
-    ? Include
-    : class HostResolvedRootInclude extends Include {
-      override import(name: string, getOuterStack?: () => string[]): unknown {
-        const specifier = isAbsolute(name) ? pathToFileURL(name).href : name
-        if (name.startsWith('.') || name.startsWith('cordis:')) return super.import(specifier, getOuterStack)
-        const internal = this.ctx.loader.internal
-        /* v8 ignore next -- Node supplies the internal loader; this preserves the
-           original diagnostic for hypothetical embedders without it. */
-        if (internal === undefined) return super.import(specifier, getOuterStack)
-        return internal.import(specifier, bareModuleBaseUrl, {})
+  if (bareModuleBaseUrl !== undefined) {
+    const hostRequire = createRequire(bareModuleBaseUrl)
+    // A bare name the installed host cannot resolve still resolves beside the
+    // configuration file: a source-checkout app anchor (`apps/cli`) does not
+    // link every transitive workspace package into its own node_modules under
+    // pnpm's nested layout, while the profile directory's healed flat fallback
+    // (the same one `healProfilesModuleFallback` maintains) covers the whole
+    // dependency closure. Installation wins where it can answer; the loader's
+    // baseUrl (the profile directory) answers the rest, which keeps the
+    // closed-runtime contract without hand-listing packages in the app.
+    const profileRequire = createRequire(pathToFileURL(absoluteConfigPath).href)
+    ctx.loader.resolveImport = (specifier) => {
+      if (!specifier.startsWith('.') && !isAbsolute(specifier)
+        && !/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(specifier)) {
+        try {
+          return pathToFileURL(hostRequire.resolve(specifier)).href
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException | null)?.code !== 'MODULE_NOT_FOUND') throw error
+          return pathToFileURL(profileRequire.resolve(specifier)).href
+        }
       }
+      return isAbsolute(specifier) ? pathToFileURL(specifier).href : specifier
     }
+  }
+  ctx.loader.builtins.include = Include
   // `cordis:group` alongside it: a group row is how a composition gives one
   // `isolate` realm to a provider and its consumers together, and an agent
   // preset living outside this workspace cannot resolve `@deepseek-ai/cordis-plugin-group`
@@ -727,8 +742,9 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
 /**
  * Boot the Loader against `absoluteConfigPath` and return only after the whole
  * tree settles. Relative entry names resolve against the config directory;
- * bare package names resolve there by default or against an explicit
- * `bareModuleBaseUrl` for closed packaged runtimes. The bootstrap include
+ * bare package names use the ambient Loader pipeline by default, or a
+ * `bareModuleBaseUrl` resolver shared by every EntryTree in closed runtimes.
+ * The bootstrap include
  * is statically imported and mounted as the `cordis:include` builtin, loading
  * through the ambient module pipeline (vite/tsx/plain ESM). The package build
  * embeds Include while leaving Loader external, so the built include tree and
@@ -737,8 +753,8 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
  * partial context; a missing fiber or never-activating entry is rejected by
  * the final audit, {@link assertEntriesActivated}, which rethrows a plugin's
  * init rejection with its original stack; later unhandled rejections remain
- * covered by {@link installFailLoud}. Built bins need the Loader's native
- * helper for bare plugin specifiers; relative specifiers do not.
+ * covered by {@link installFailLoud}. Closed runtimes use the explicit module
+ * base instead of depending on the Loader's optional native helper.
  * @param binName - the diagnostic prefix for load-failure errors.
  * @param absoluteConfigPath - the config to include; must already be absolute
  * (see {@link resolveConfigPath}).

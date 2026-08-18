@@ -207,6 +207,7 @@ describe('sessions domain schemas', () => {
     expect(sessionModelsValueSchema.parse({
       current: { provider: 'deepseek-official', model: 'deepseek-v4-flash', reasoningEffort: 'max' },
       routable: true,
+      requiresImageInput: false,
       groups: [{
         id: 'deepseek-official',
         name: 'DeepSeek',
@@ -214,6 +215,7 @@ describe('sessions domain schemas', () => {
           id: 'deepseek-v4-flash',
           name: 'DeepSeek V4 Flash',
           description: 'fast',
+          inputModalities: ['text', 'image'],
           reasoning: {
             efforts: [
               { id: 'off', name: 'Off' },
@@ -413,17 +415,21 @@ describe('skills domain schemas', () => {
     expect(skillListRequestSchema.parse({ sessionId: 's1' })).toEqual({ sessionId: 's1' })
     // The wire is session-addressed only: a sessionId-less payload fails.
     expect(() => skillListRequestSchema.parse({})).toThrow()
-    expect(skillListValueSchema.parse({ skills: [] }).skills).toEqual([])
+    expect(skillListValueSchema.parse({ skills: [], openDirectory: '/dsh/skills', canOpenPath: true }).skills).toEqual([])
     const value = skillListValueSchema.parse({ skills: [
-      { name: 'commit-helper', description: 'Git commits', whenToUse: 'when committing', modelInvocable: true },
-      { name: 'bare', description: 'No guidance', modelInvocable: false },
-    ] })
+      { name: 'commit-helper', description: 'Git commits', whenToUse: 'when committing', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
+      { name: 'bare', description: 'No guidance', modelInvocable: false, source: 'runtime', provider: 'runtime' },
+    ], openDirectory: '/dsh/skills', canOpenPath: false })
     expect(value.skills[0]?.whenToUse).toBe('when committing')
     expect(value.skills[1]?.whenToUse).toBeUndefined()
     expect(value.skills[1]?.modelInvocable).toBe(false)
-    expect(() => skillEntrySchema.parse({ name: '', description: 'd', modelInvocable: true })).toThrow()
+    expect(value.openDirectory).toBe('/dsh/skills')
+    expect(value.canOpenPath).toBe(false)
+    expect(() => skillEntrySchema.parse({ name: '', description: 'd', modelInvocable: true, source: 'runtime', provider: 'runtime' })).toThrow()
     // modelInvocable is required wire data: an entry without it fails.
     expect(() => skillEntrySchema.parse({ name: 'n', description: 'd' })).toThrow()
+    // The directory facts are required wire data: a value without them fails.
+    expect(() => skillListValueSchema.parse({ skills: [] })).toThrow()
   })
 })
 

@@ -67,8 +67,12 @@ import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 
 export { PiAiAdapter } from './adapter.ts'
-export type { PiAiAdapterOptions } from './adapter.ts'
-export { Config } from './config.ts'
+export type {
+  PiAiAdapterOptions,
+  PiAiPreparedRequest,
+  PiAiRequestContext,
+} from './adapter.ts'
+export { Config, resolveProfiles } from './config.ts'
 export type {
   PiAiCompatProfile,
   PiAiModality,

@@ -60,6 +60,7 @@ import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
 import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
 import * as ToolSubagent from '@deepseek-ai/dsh-tool-subagent'
 import * as ToolWeb from '@deepseek-ai/dsh-tool-web'
+import * as BrowserTools from '@deepseek-ai/dsh-browser'
 import VmWorkflowEngine from '@deepseek-ai/dsh-workflow-worker-thread'
 import * as ToolRalph from '@deepseek-ai/dsh-tool-ralph'
 import * as ToolWorkflow from '@deepseek-ai/dsh-tool-workflow'
@@ -550,6 +551,21 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-browser',
+    dir: 'browser',
+    source: 'packages/browser/browser/src/index.ts',
+    requires: ['ctx.tools', 'ctx.systemPrompt', 'ctx.attachments (browser_screenshot registration)'],
+    writes: ['tool/call', 'tool/result', 'durable attachment (browser_screenshot)'],
+    async mount(ctx) {
+      // The Playwright browser never launches during schema harvest: no tool
+      // executes, and the schema is engine-independent.
+      await ctx.plugin(CatalogAttachmentStore)
+      await ctx.plugin(BrowserTools)
+    },
+    note:
+      'browser_screenshot is not registered without ctx.attachments; its schema is route-independent, and execution refuses unless the exact routed model declares image input.',
   },
 ]
 

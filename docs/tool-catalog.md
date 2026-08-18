@@ -39,6 +39,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
+| `@deepseek-ai/dsh-browser` | `browser_click`, `browser_navigate`, `browser_press_key`, `browser_screenshot`, `browser_snapshot`, `browser_type` | `ctx.tools`, `ctx.systemPrompt`, `ctx.attachments (browser_screenshot registration)` | `tool/call`, `tool/result`, `durable attachment (browser_screenshot)` | - | browser_screenshot is not registered without ctx.attachments; its schema is route-independent, and execution refuses unless the exact routed model declares image input. |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -1871,3 +1872,141 @@ Search the web for current information. Returns an optional summary answer and a
 Source: [`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.
+
+<a id="deepseek-aidsh-browser"></a>
+
+## `@deepseek-ai/dsh-browser`
+
+### `browser_click`
+
+Click the element with the given ref from the most recent browser_snapshot. Re-run browser_snapshot first if the page may have changed.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Element ref from the last browser_snapshot (e.g. \"e4\")."
+    }
+  },
+  "required": [
+    "ref"
+  ]
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_navigate`
+
+Navigate the persistent browser page to an absolute http(s) URL. The page persists across calls; use browser_snapshot next to see its accessible contents.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "Absolute URL to load (http or https)."
+    }
+  },
+  "required": [
+    "url"
+  ]
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_press_key`
+
+Press a key on the current page, optionally with modifier keys (Control, Meta, Shift, Alt).
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Key to press, e.g. \"Enter\", \"Escape\", \"ArrowDown\", \"a\"."
+    },
+    "modifiers": {
+      "type": "array",
+      "description": "Optional modifier keys held while pressing, e.g. [\"Control\", \"Shift\"].",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_screenshot`
+
+Capture the current browser page viewport as a PNG image. Requires the current model to accept image input.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImage": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; the screenshot is always returned when the model accepts images."
+    }
+  }
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_snapshot`
+
+Return the accessibility snapshot of the current page with [ref] markers for use with browser_click and browser_type, plus the page URL and title.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImageRefs": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; image elements are always included."
+    }
+  }
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_type`
+
+Replace the content of the referenced text field with the given text.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Text-field ref from the last browser_snapshot."
+    },
+    "text": {
+      "type": "string",
+      "description": "The text to enter into the field."
+    }
+  },
+  "required": [
+    "ref",
+    "text"
+  ]
+}
+```
+
+Source: [`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+browser_screenshot is not registered without ctx.attachments; its schema is route-independent, and execution refuses unless the exact routed model declares image input.

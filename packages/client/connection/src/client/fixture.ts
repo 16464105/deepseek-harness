@@ -2381,6 +2381,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         // The fixture's routes all serve; a surface exercising the blocked
         // posture drives it through its own stub.
         routable: true,
+        requiresImageInput: false,
         groups: fixtureModelGroups(),
         failures: [],
       }),
@@ -2783,9 +2784,15 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
         if (missing !== undefined) return missing
         return ok(request, {
           skills: [
-            { name: 'fixture-demo', description: 'fixture 技能样本', whenToUse: '仅供 UI 目录渲染验收', modelInvocable: true },
-            { name: 'fixture-user-only', description: 'fixture 仅用户技能样本', modelInvocable: false },
+            { name: 'fixture-demo', description: 'fixture 技能样本', whenToUse: '仅供 UI 目录渲染验收', modelInvocable: true, source: 'bundled', provider: 'fixture' },
+            { name: 'fixture-user-only', description: 'fixture 仅用户技能样本', modelInvocable: false, source: 'user-dsh', provider: 'fixture' },
           ],
+          // The fixture exposes a deterministic install directory; native
+          // opens are no-op successes (host.openPath), so the open-directory
+          // affordance renders and the path-text fallback stays a
+          // component-test concern.
+          openDirectory: '/fixture/dsh/skills',
+          canOpenPath: true,
         })
       },
     },

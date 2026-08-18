@@ -34,6 +34,17 @@ pnpm run build
 pnpm dsh web
 ```
 
+### Run the desktop client from source
+
+The Electron client reuses the Web UI and opens its own window. On first use, enter only the Tencent CodeBuddy key requested by the onboarding dialog. The Models page reads the desktop-chat models cached by the local CodeBuddy client, lets you choose which appear in the chat selector, and retains the original DeepSeek models:
+
+```sh
+npx --yes pnpm@11.7.0 run build
+npx --yes pnpm@11.7.0 run desktop:start
+```
+
+See the [desktop application guide](apps/desktop/README.md) for local packaging and runtime details.
+
 ## Community and support
 
 - Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).

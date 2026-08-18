@@ -88,6 +88,7 @@ export class FakeApiClient implements IApiClient {
   onModels: (payload: unknown) => Promise<RpcResponse<SessionModels>> = () => Promise.resolve(ok({
     current: this.defaultModel,
     routable: true,
+    requiresImageInput: false,
     groups: [{
       id: 'deepseek-official',
       name: 'DeepSeek',
@@ -224,8 +225,8 @@ export class FakeApiClient implements IApiClient {
   // Payloads stay `unknown` (lint-lane note above); response rows are the real
   // wire shapes so cases can program requires-bearing catalogs and dual-address
   // skill lists without casts.
-  onSkillList: (payload: unknown) => Promise<RpcResponse<{ skills: SkillEntry[] }>>
-    = () => Promise.resolve(ok({ skills: [] }))
+  onSkillList: (payload: unknown) => Promise<RpcResponse<{ skills: SkillEntry[]; openDirectory: string; canOpenPath: boolean }>>
+    = () => Promise.resolve(ok({ skills: [], openDirectory: '/fixture/skills', canOpenPath: true }))
 
 
   readonly agentPresets: IApiClient['agentPresets'] = {

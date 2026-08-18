@@ -94,6 +94,11 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Persistent MCP definitions from settings.yaml; enabled rows mount the
+    # existing mcp-client bridge immediately and publish redacted status to Web.
+    - id: mcp-manager
+      name: '@deepseek-ai/dsh-mcp-manager'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -194,6 +199,9 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    - id: ui-settings-mcp
+      name: '@deepseek-ai/dsh-client-ui-settings-mcp'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
@@ -406,6 +414,12 @@
 
 - id: tool-web
   disabled: true
+
+# The browser tool suite is web-plane only: the GUI mode enables the disabled
+# base row so its agent presets may call browser tools, while headless/CLI
+# keeps them off. See .agents/notes/implemented/feature/2026-08-16-browser-tools.md.
+- id: browser
+  disabled: false
 
 # The preset roster. `config/agent-presets/` ships with the deployment and is
 # read-only (its entries carry `system` trust); `$DSH_HOME/.agent-presets` is

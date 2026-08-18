@@ -180,6 +180,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Plugins register namespace schemas and resolve layered values; providers store the raw document. The LLM adapters register their entry config as the composition base under the user section; the web gateway serves redacted layered descriptors and writes the user layer.',
   },
   {
+    key: 'mcpManager',
+    pkg: 'mcp-manager',
+    title: 'Managed MCP server lifecycle',
+    mode: 'seam',
+    implementations: ['mcp-manager'],
+    consumers: ['ui-settings-mcp'],
+    note: 'The Host persists secret-redacted server definitions and reconciles one mcp-client fiber per enabled entry; the Web settings consumer owns editing and lifecycle controls.',
+  },
+  {
     key: 'credentials',
     pkg: 'credentials',
     title: 'Credential seam',

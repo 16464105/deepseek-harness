@@ -22,6 +22,7 @@ import { SessionQueryError, type SessionSearchCursor } from '@deepseek-ai/dsh-se
 import { SubagentError } from '@deepseek-ai/dsh-subagent'
 import type { SubagentListEntry as CatalogSubagentListEntry } from '@deepseek-ai/dsh-subagent'
 import { isUserInvocable } from '@deepseek-ai/dsh-skill'
+import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
 import {
   workspaceDomainState, workspaceRecord, WorkspaceId as brandWorkspaceId,
@@ -236,6 +237,13 @@ function messagesHaveImage(messages: readonly { content: readonly ContentBlock[]
   return messages.some(message => contentHasImage(message.content))
 }
 
+/** True when an Agent's visible history or pending inbox still contains image input. */
+function agentRequiresImageInput(agent: Agent): boolean {
+  return [...agent.inbox.nextTurn, ...agent.inbox.nextStep]
+    .some(message => contentHasImage(message.content))
+    || messagesHaveImage(agent.session.deriveMessages())
+}
+
 /** Resolve the first reference matching one opaque id. */
 function referencedImage(events: readonly SessionEvent[], attachmentId: string): ImageAttachmentRef | undefined {
   for (const event of events) {
@@ -352,6 +360,9 @@ async function buildModelCatalog(ctx: Context): Promise<{
           id: model.id,
           name: model.name,
           ...model.description === undefined ? {} : { description: model.description },
+          ...resolved.inputModalities === undefined
+            ? {}
+            : { inputModalities: [...resolved.inputModalities] },
           ...reasoning === undefined ? {} : { reasoning },
         }
       }))
@@ -2276,7 +2287,8 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         const current = selectionFor(found.agent).current
         const { groups, failures } = await buildModelCatalog(ctx)
         const routable = routeServed(current.provider)
-        return ok(request, { current: { ...current }, routable, groups, failures })
+        const requiresImageInput = agentRequiresImageInput(found.agent)
+        return ok(request, { current: { ...current }, routable, requiresImageInput, groups, failures })
       },
 
       async selectModel(request) {
@@ -2292,9 +2304,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
                 ? {}
                 : { reasoningEffort: ReasoningEffortId(reasoningEffort) },
             })
-            const pendingImage = [...found.agent.inbox.nextTurn, ...found.agent.inbox.nextStep]
-              .some(message => contentHasImage(message.content))
-            if (pendingImage || messagesHaveImage(found.agent.session.deriveMessages())) {
+            if (agentRequiresImageInput(found.agent)) {
               const info = await ctx.llm.resolveModelInfo(resolved.provider, resolved.model)
               if (info.inputModalities !== undefined && !info.inputModalities.includes('image')) {
                 return err(request, {
@@ -3207,7 +3217,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       // resolves to a canonical cwd from the host-resident session header, and
       // the view scope is the live agent or the preset's standing key.
       async list(request) {
-        const { sessionId } = request.payload
+        const { sessionId, refresh } = request.payload
         const session = ctx.sessions.get(sessionId)
         if (session === undefined) {
           return err(request, {
@@ -3242,14 +3252,30 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
         // '/' popup lists the catalog its composition actually serves.
         const scope = await presenterScopeFor(sessionId, session)
         try {
+          if (refresh === true) skillRegistry.refresh()
           const skills = (await skillRegistry.list({ cwd, scope })).filter(isUserInvocable)
+          // The user skills directory a person installs skills into. The
+          // same single harness-home root the settings document uses, and
+          // the root `dsh-skill-filesystem` scans as `user-dsh` — so the
+          // directory the surface opens is exactly where discovered user
+          // skills come from. Created here rather than left absent: a home
+          // whose person never installed a user skill has no directory yet,
+          // and macOS `open` fails on a missing target, so the open action
+          // would otherwise always error on a fresh home. A path never
+          // rides in; only out, and only to be handed to the native opener.
+          const openDirectory = dshHomePath('skills')
+          await mkdir(openDirectory, { recursive: true })
           return ok(request, {
             skills: skills.map(skill => ({
               name: skill.name,
               description: skill.description,
               ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
               modelInvocable: skill.invocation.modelInvocable,
+              source: skill.source,
+              provider: skill.provider,
             })),
+            openDirectory,
+            canOpenPath: canOpenPaths(),
           })
         } catch (error: unknown) {
           return err(request, { code: 'internal', message: `skill listing failed: ${String(error)}`, details: {} })

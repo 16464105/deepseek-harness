@@ -393,6 +393,14 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
+    # Browser operation is opt-in: the browser row ships disabled so no
+    # default composition launches Chromium or registers the tools; the web-app
+    # layer enables it with the same one-line config override a deployment
+    # uses. See .agents/notes/implemented/feature/2026-08-16-browser-tools.md.
+    - id: browser
+      name: '@deepseek-ai/dsh-browser'
+      disabled: true
+
     # Every mode enables the stable model-facing web_search tool. DeepSeek search
     # resolves the same DEEPSEEK_API_KEY credential the Models page manages for
     # chat, at each search; its Messages endpoint is separate from the

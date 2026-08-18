@@ -8,6 +8,10 @@ pick 会落下字面文本 `/name `，发出的提示词中也是同一段字面
 
 `skill.list` 失败时 `candidates` 抛出异常，slash 壳层记录日志，并静默丢弃该菜单组——菜单只显示 pending／ready 状态。
 
+## 设置
+
+该包还注册顶层「Skill」设置分区。它列出当前会话工作区的真实 Host 目录，展示 source/provider 信息，并按需刷新 Host `SkillRegistry`。每个浏览器维护一份可见性映射，控制哪些用户可调用条目出现在聊天 `/` 选择器中；隐藏条目只影响这个选择器，不会改变模型调用权限或已存的 `SKILL.md`。
+
 `/client` 导出接口只有插件主体（`apply`／`inject`）；source 对象是注册 effect 的内部实现。
 
 ## skill 工具行

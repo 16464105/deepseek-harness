@@ -75,6 +75,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   llm: 'llm-streaming.md',
   lsp: 'lsp.md',
   messageFeedback: 'feedback.md',
+  mcpManager: 'mcp.md',
   permissionPresets: 'permission-presets.md',
   planMode: 'plan.md',
   terminals: 'terminal.md',
@@ -174,6 +175,7 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'fs': 'filesystem.md',
   'goal': 'goal.md',
   'llm': 'llm-streaming.md',
+  'mcp': 'mcp.md',
   'session': 'session.md',
   'settings': 'settings.md',
   'skills': 'skills.md',
@@ -578,6 +580,9 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   WorkflowAgentEndInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowAgentInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
   WorkflowResultInfo: 'event-local snapshot is owned by packages/workflow/workflow/src/index.ts',
+  McpConnectionStatus: 'MCP connection status projection is owned by packages/mcp/mcp-client/README.md',
+  McpServerDraft: 'MCP manager write payload is owned by packages/mcp/mcp-manager/README.md',
+  McpServerSnapshot: 'MCP manager directory projection is owned by packages/mcp/mcp-manager/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

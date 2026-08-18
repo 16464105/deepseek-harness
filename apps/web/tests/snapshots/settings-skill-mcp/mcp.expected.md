@@ -1,0 +1,46 @@
+- dialog "设置":
+  - navigation:
+    - text: 设置
+    - button "通用设置":
+      - img
+      - text: 通用设置
+    - button "模型":
+      - img
+      - text: 模型
+    - button "插件":
+      - img
+      - text: 插件
+    - button "Skills":
+      - img
+      - text: Skills
+    - button "Agent 预设":
+      - img
+      - text: Agent 预设
+    - button "MCP":
+      - img
+      - text: MCP
+  - button "打开配置文件"
+  - button "关闭":
+    - img
+    - text: 关闭
+  - heading "MCP 管理" [level=2]
+  - paragraph: 管理客户端连接的 MCP 服务器。保存后立即生效。
+  - button "打开配置文件"
+  - button "刷新状态":
+    - img
+    - text: 刷新状态
+  - button "添加服务器":
+    - img
+    - text: 添加服务器
+  - list:
+    - listitem:
+      - strong: local_demo
+      - text: 本地进程 已停用 已保存敏感配置
+      - checkbox "已停用"
+      - text: 已停用
+      - button "重新连接 local_demo" [disabled]:
+        - img
+      - button "编辑 local_demo":
+        - img
+      - button "删除 local_demo":
+        - img

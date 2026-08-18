@@ -23,6 +23,8 @@ export interface ModelDirectoryState {
    * from the groups yet perfectly usable.
    */
   routable: boolean | null
+  /** Whether visible history or the pending Host inbox requires image input. */
+  requiresImageInput: boolean
   /** Successfully loaded provider groups (last good load). */
   groups: readonly ModelProviderGroup[]
   /** Provider-local failures from the last load; usable groups stay usable. */
@@ -37,7 +39,8 @@ export interface ModelDirectoryState {
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
   readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
-    current: null, routable: null, groups: [], failures: [], status: 'idle', error: null,
+    current: null, routable: null, requiresImageInput: false,
+    groups: [], failures: [], status: 'idle', error: null,
   })
 
   /** Latest operation wins; an older response never overwrites a newer one. */
@@ -73,10 +76,11 @@ export class ModelDirectory {
       this.store.update((s) => { s.status = 'error'; s.error = `${result.error.code}: ${result.error.message}` })
       throw new Error(`session.models failed: ${result.error.code}: ${result.error.message}`)
     }
-    const { current, routable, groups, failures } = result.value
+    const { current, routable, requiresImageInput, groups, failures } = result.value
     this.store.update((s) => {
       s.current = current
       s.routable = routable
+      s.requiresImageInput = requiresImageInput
       s.groups = groups
       s.failures = failures
       s.status = 'ready'
@@ -132,6 +136,7 @@ export class ModelDirectory {
     this.store.update((s) => {
       s.current = null
       s.routable = null
+      s.requiresImageInput = false
       s.groups = []
       s.failures = []
       s.status = 'idle'

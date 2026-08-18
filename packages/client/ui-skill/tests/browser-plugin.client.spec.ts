@@ -22,8 +22,16 @@ import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ClientSessionContext, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { apply, inject } from '../src/client/index.ts'
 import { SkillRow as SkillToolRow } from '../src/client/SkillRow.tsx'
+import { en, zh } from '../src/client/locales.ts'
 
-type SkillRow = { name: string; description: string; whenToUse?: string; modelInvocable?: boolean }
+type SkillRow = {
+  name: string
+  description: string
+  whenToUse?: string
+  modelInvocable?: boolean
+  source: string
+  provider: string
+}
 type ListResult =
   | { ok: true; value: { skills: SkillRow[] } }
   | { ok: false; error: { code: string; message: string; details: object } }
@@ -81,9 +89,9 @@ async function bench(list: ListFn, addressed?: SessionId, invoke?: InvokeFn) {
 }
 
 const CATALOG: SkillRow[] = [
-  { name: 'commit-helper', description: 'commit flow', modelInvocable: true },
-  { name: 'code-review', description: 'review flow', whenToUse: 'reviews', modelInvocable: true },
-  { name: 'deploy', description: 'deploy flow', modelInvocable: true },
+  { name: 'commit-helper', description: 'commit flow', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
+  { name: 'code-review', description: 'review flow', whenToUse: 'reviews', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
+  { name: 'deploy', description: 'deploy flow', modelInvocable: true, source: 'bundled', provider: 'filesystem' },
 ]
 
 const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ result: { ok: true as const, value: { skills } } })
@@ -123,22 +131,7 @@ describe('apply', () => {
     expect(entry?.locale).toBe('skill')
     expect(entry?.component).toBe(SkillToolRow)
     expect(presentation.dictionaries).toEqual([{
-      namespace: 'skill', dictionaries: {
-        zh: {
-          'row.running': '正在加载 skill',
-          'row.failed': 'skill 加载失败',
-          'row.stopped': 'skill 加载已中止',
-          'row.instructions': '说明',
-          'menu.userOnly': '仅用户',
-        },
-        en: {
-          'row.running': 'Loading skill',
-          'row.failed': 'Skill load failed',
-          'row.stopped': 'Skill load stopped',
-          'row.instructions': 'Instructions',
-          'menu.userOnly': 'user-only',
-        },
-      },
+      namespace: 'skill', dictionaries: { zh, en },
     }])
   })
 
@@ -369,8 +362,8 @@ describe('pick lands plain text', () => {
 describe('user-only marking', () => {
   it('prefixes the description of candidates the model cannot invoke', async () => {
     const rows: SkillRow[] = [
-      { name: 'shared-skill', description: 'both surfaces', modelInvocable: true },
-      { name: 'user-only-skill', description: 'user surface only', modelInvocable: false },
+      { name: 'shared-skill', description: 'both surfaces', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
+      { name: 'user-only-skill', description: 'user surface only', modelInvocable: false, source: 'user-dsh', provider: 'filesystem' },
     ]
     const { source } = await bench(listOk(rows))
     const candidates = await source.candidates(proj('s1'), req(''))

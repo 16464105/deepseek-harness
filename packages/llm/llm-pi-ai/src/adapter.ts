@@ -76,6 +76,31 @@ export interface PiAiAdapterOptions {
   resolveApiKey: (provider: string, profile: ResolvedPiAiProviderProfile) => Promise<string | undefined>
   /** Resolve the optional durable attachment service at request time. */
   resolveAttachments?: () => AttachmentStore | undefined
+  /**
+   * Add provider-specific transport fields for one already-resolved request.
+   * This hook is for adapters whose authenticated endpoint requires dynamic
+   * request metadata or a final payload normalization that pi-ai does not own.
+   * The returned headers are merged under Harness attribution headers.
+   */
+  prepareRequest?: (request: PiAiRequestContext) => PiAiPreparedRequest
+}
+
+/** Frozen request facts passed to {@link PiAiAdapterOptions.prepareRequest}. */
+export interface PiAiRequestContext {
+  /** Harness request captured before credential resolution. */
+  options: Readonly<GenerateOptions>
+  /** Resolved provider profile from the same immutable adapter snapshot. */
+  profile: ResolvedPiAiProviderProfile
+  /** Resolved pi-ai model selected by the request. */
+  model: Model<Api>
+}
+
+/** Provider-specific request fields accepted by {@link PiAiAdapterOptions.prepareRequest}. */
+export interface PiAiPreparedRequest {
+  /** Dynamic request headers, merged over profile headers. */
+  headers?: Record<string, string>
+  /** Final provider-payload inspection or replacement callback. */
+  onPayload?: SimpleStreamOptions['onPayload']
 }
 
 /** Copy profile stream knobs into pi-ai's common option vocabulary. */
@@ -290,6 +315,7 @@ export class PiAiAdapter extends LlmAdapter {
       options.reasoningEffort ?? profile.reasoning,
     )
     const apiKey = await this.config.resolveApiKey(options.provider, profile)
+    const prepared = this.config.prepareRequest?.({ options, profile, model })
 
     const consumer = new AbortController()
     const upstream = options.signal === undefined
@@ -312,13 +338,14 @@ export class PiAiAdapter extends LlmAdapter {
         : await toPiContext(options, attachments)
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
+        ...prepared?.onPayload === undefined ? {} : { onPayload: prepared.onPayload },
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
         ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
+        headers: requestHeaders({ ...profile.headers, ...prepared?.headers }),
       })
       const iterator = toStreamChunks(events, model.contextWindow)[Symbol.asyncIterator]()
       let exhausted = false

@@ -8,6 +8,10 @@ A pick lands the literal `/name ` text and the prompt ships the same literal ([s
 
 A failed `skill.list` throws from `candidates`, which the slash shell logs and folds into a silent menu-group drop — the menu shows only pending/ready states.
 
+## Settings
+
+The package also registers the top-level `Skills` settings section. It lists the current session workspace's real Host catalog, exposes source/provider metadata, and refreshes the Host `SkillRegistry` on demand. A per-browser visibility map controls which user-invocable entries appear in the chat `/` picker; hiding an entry changes only that picker and never changes model invocation or the stored `SKILL.md`.
+
 The `/client` exports are the plugin body (`apply`/`inject`) only; the source object is internal to the registration effect.
 
 ## Skill tool row

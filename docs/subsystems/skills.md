@@ -284,6 +284,13 @@ register(skill: SkillRegistration): () => void
 async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>
 
 /**
+ * Drop completed discovery results so the next read asks every provider again.
+ * Filesystem watchers normally keep catalogs current; explicit user refreshes
+ * use this method when a missed or unavailable watch event is plausible.
+ */
+refresh(): void
+
+/**
  * Observe the current invocation-neutral catalog and whether discovery completed within a stable revision.
  * Incomplete observations are never cached, allowing consumers to retain last-good state and
  * retry on their next request boundary.

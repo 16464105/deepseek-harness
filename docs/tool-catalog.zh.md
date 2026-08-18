@@ -41,6 +41,7 @@
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
+| `@deepseek-ai/dsh-browser` | `browser_click`、`browser_navigate`、`browser_press_key`、`browser_screenshot`、`browser_snapshot`、`browser_type` | `ctx.tools`、`ctx.systemPrompt`、`ctx.attachments (browser_screenshot registration)` | `tool/call`、`tool/result`、`durable attachment (browser_screenshot)` | - | 没有 ctx.attachments 时 browser_screenshot 不会注册；其 schema 与路由无关，执行时除非确切路由的模型声明图像输入，否则拒绝。 |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -1876,3 +1877,141 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 来源：[`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。
+
+<a id="deepseek-aidsh-browser"></a>
+
+## `@deepseek-ai/dsh-browser`
+
+### `browser_click`
+
+点击最近一次 browser_snapshot 中给定 ref 所引用的元素。如果页面可能已变化，请先重新运行 browser_snapshot。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Element ref from the last browser_snapshot (e.g. \"e4\")."
+    }
+  },
+  "required": [
+    "ref"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_navigate`
+
+将持久浏览器页面导航到绝对 http(s) URL。页面在多次调用之间保持；随后使用 browser_snapshot 查看其可访问内容。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "Absolute URL to load (http or https)."
+    }
+  },
+  "required": [
+    "url"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_press_key`
+
+在当前页面按下一个键，可选带修饰键（Control、Meta、Shift、Alt）。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Key to press, e.g. \"Enter\", \"Escape\", \"ArrowDown\", \"a\"."
+    },
+    "modifiers": {
+      "type": "array",
+      "description": "Optional modifier keys held while pressing, e.g. [\"Control\", \"Shift\"].",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_screenshot`
+
+将当前浏览器页面视口捕获为 PNG 图像。要求当前模型接受图像输入。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImage": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; the screenshot is always returned when the model accepts images."
+    }
+  }
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_snapshot`
+
+返回当前页面的可访问性快照，带 [ref] 标记供 browser_click 与 browser_type 使用，以及页面 URL 与标题。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImageRefs": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; image elements are always included."
+    }
+  }
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+### `browser_type`
+
+用给定文本替换所引用文本字段的内容。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Text-field ref from the last browser_snapshot."
+    },
+    "text": {
+      "type": "string",
+      "description": "The text to enter into the field."
+    }
+  },
+  "required": [
+    "ref",
+    "text"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/index.ts`](../packages/browser/browser/src/index.ts)
+
+没有 ctx.attachments 时 browser_screenshot 不会注册；其 schema 与路由无关，执行时除非确切路由的模型声明图像输入，否则拒绝。

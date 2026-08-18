@@ -34,6 +34,17 @@ pnpm run build
 pnpm dsh web
 ```
 
+### 从源码运行桌面客户端
+
+Electron 客户端会复用 Web UI，并打开自己的应用窗口。首次使用时，只需在引导弹窗中填写腾讯 CodeBuddy Key。Models 页面会读取本地 CodeBuddy 客户端缓存的桌面聊天模型，允许选择哪些模型出现在聊天框选择器中，并保留原有 DeepSeek 模型：
+
+```sh
+npx --yes pnpm@11.7.0 run build
+npx --yes pnpm@11.7.0 run desktop:start
+```
+
+本地打包方式与运行细节见[桌面应用指南](apps/desktop/README.md)。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。

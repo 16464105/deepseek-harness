@@ -882,6 +882,49 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'mcpManager',
+    summary: 'Host service that persists definitions and mounts one mcp-client fiber per enabled server.',
+    description: 'Host service that persists definitions and mounts one mcp-client fiber per enabled server.',
+    methods: [
+      {
+        signature: '@Remote(\'list\') async list(): Promise<McpServerSnapshot>',
+        description: 'Return every managed server without environment variables or HTTP headers.',
+        parameters: [],
+        returns: 'The current writable state, the host-resolved `mcp.json` path, and the secret-redacted server directory.',
+      },
+      {
+        signature: '@Remote(\'openDocument\') async openDocument(): Promise<string>',
+        description: 'Materialize the absent `mcp.json` and return its path for the open action.',
+        parameters: [],
+        returns: 'The host-resolved document path, ready for a native opener.',
+      },
+      {
+        signature: '@Remote(\'save\') async save(draft: McpServerDraft): Promise<McpServerSnapshot>',
+        description: 'Create or replace one server definition, retaining omitted secrets on edits.',
+        parameters: [{ name: 'draft', description: 'The validated server definition and optional write-only secrets.' }],
+        returns: 'The updated writable state and server directory.',
+      },
+      {
+        signature: '@Remote(\'setEnabled\') async setEnabled(serverName: string, enabled: boolean): Promise<McpServerSnapshot>',
+        description: 'Enable or disable one stored server and reconcile its live fiber.',
+        parameters: [{ name: 'serverName', description: 'Stored server namespace.' }, { name: 'enabled', description: 'Whether the manager should mount the server.' }],
+        returns: 'The updated writable state and server directory.',
+      },
+      {
+        signature: '@Remote(\'removeServer\') async remove(serverName: string): Promise<McpServerSnapshot>',
+        description: 'Delete one stored server and dispose its live fiber.',
+        parameters: [{ name: 'serverName', description: 'Stored server namespace.' }],
+        returns: 'The updated writable state and server directory.',
+      },
+      {
+        signature: '@Remote(\'restart\') async restart(serverName: string): Promise<McpServerSnapshot>',
+        description: 'Dispose and reconnect one enabled server without changing its stored definition.',
+        parameters: [{ name: 'serverName', description: 'Stored server namespace.' }],
+        returns: 'The updated writable state and server directory.',
+      },
+    ],
+  },
+  {
     key: 'messageFeedback',
     summary: 'Storage-domain sidecar service.',
     description: 'Storage-domain sidecar service. It inspects persisted Session history and never creates or resumes an Agent or Session.',
@@ -1506,6 +1549,11 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'List invocation-neutral skill summaries for a workspace. Consumers apply model or user invocation policy at their operational boundary. Lookup options and provider candidates are readonly same-process values borrowed throughout discovery.',
         parameters: [{ name: 'options', description: 'view options; `scope` selects the viewing agent\'s layers, `cwd` selects project roots, and `signal` cancels discovery.' }],
         returns: 'all sorted winning summaries.',
+      },
+      {
+        signature: 'refresh(): void',
+        description: 'Drop completed discovery results so the next read asks every provider again. Filesystem watchers normally keep catalogs current; explicit user refreshes use this method when a missed or unavailable watch event is plausible.',
+        parameters: [],
       },
       {
         signature: 'async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot>',
@@ -2396,6 +2444,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Waterfall around every streaming model call (retry, replay, routing).',
     description: 'Waterfall around every streaming model call (retry, replay, routing). Bound to the LlmRuntime; call `next()` to reach the resolved adapter\'s stream, or yield your own chunks to short-circuit.',
     parameters: [{ name: 'options', description: 'the full request. A LOOP-built request carries the process-local {@link markAgentLoopRequest} identity and arrives deep-frozen (mutation throws): its content is a pure function of the session log (the reconstructability Agent Note), so listeners read it, never rewrite it. Hand-built calls do not carry that marker; their messages already obey the immutable creation contract.' }],
+  },
+  {
+    name: 'mcp/status',
+    mode: 'emit',
+    signature: '\'mcp/status\'(status: McpConnectionStatus): void',
+    summary: 'Publish a configured server\'s transport phase and discovered tool count to management consumers.',
+    description: 'Publish a configured server\'s transport phase and discovered tool count to management consumers.',
+    parameters: [{ name: 'status', description: 'Current state of one configured MCP server.' }],
   },
   {
     name: 'session-telemetry/record',
@@ -3360,6 +3416,46 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ManualCompactAgentContext',
     declaration: 'export interface ManualCompactAgentContext extends CompactionAgentContext {\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n}',
+  },
+  {
+    name: 'McpConnectionStatus',
+    declaration: 'export interface McpConnectionStatus {\n    readonly serverName: string;\n    readonly phase: \'connecting\' | \'connected\' | \'reconnecting\' | \'failed\';\n    readonly toolCount: number;\n}',
+  },
+  {
+    name: 'McpHttpServerDraft',
+    declaration: 'export interface McpHttpServerDraft extends McpServerDraftBase {\n    readonly transport: \'streamable-http\';\n    readonly url: string;\n    readonly headers?: Readonly<Record<string, string>>;\n}',
+  },
+  {
+    name: 'McpHttpServerView',
+    declaration: 'export interface McpHttpServerView {\n    readonly transport: \'streamable-http\';\n    readonly serverName: string;\n    readonly enabled: boolean;\n    readonly url: string;\n    readonly toolCallTimeoutMs: number;\n    readonly reconnect?: McpReconnectDraft;\n    readonly hasSecrets: boolean;\n    readonly phase: McpManagedPhase;\n    readonly toolCount: number;\n}',
+  },
+  {
+    name: 'McpManagedPhase',
+    declaration: 'export type McpManagedPhase = \'disabled\' | \'connecting\' | \'connected\' | \'reconnecting\' | \'failed\';',
+  },
+  {
+    name: 'McpReconnectDraft',
+    declaration: 'export interface McpReconnectDraft {\n    readonly enabled?: boolean;\n    readonly initialDelayMs?: number;\n    readonly maxDelayMs?: number;\n    readonly maxAttempts?: number;\n}',
+  },
+  {
+    name: 'McpServerDraft',
+    declaration: 'export type McpServerDraft = McpStdioServerDraft | McpHttpServerDraft;',
+  },
+  {
+    name: 'McpServerSnapshot',
+    declaration: 'export interface McpServerSnapshot {\n    readonly writable: boolean;\n    readonly documentPath: string;\n    readonly servers: readonly McpServerView[];\n}',
+  },
+  {
+    name: 'McpServerView',
+    declaration: 'export type McpServerView = McpStdioServerView | McpHttpServerView;',
+  },
+  {
+    name: 'McpStdioServerDraft',
+    declaration: 'export interface McpStdioServerDraft extends McpServerDraftBase {\n    readonly transport: \'stdio\';\n    readonly command: string;\n    readonly args: readonly string[];\n    readonly cwd: string;\n    readonly env?: Readonly<Record<string, string>>;\n}',
+  },
+  {
+    name: 'McpStdioServerView',
+    declaration: 'export interface McpStdioServerView {\n    readonly transport: \'stdio\';\n    readonly serverName: string;\n    readonly enabled: boolean;\n    readonly command: string;\n    readonly args: readonly string[];\n    readonly cwd: string;\n    readonly toolCallTimeoutMs: number;\n    readonly reconnect?: McpReconnectDraft;\n    readonly hasSecrets: boolean;\n    readonly phase: McpManagedPhase;\n    readonly toolCount: number;\n}',
   },
   {
     name: 'Message',

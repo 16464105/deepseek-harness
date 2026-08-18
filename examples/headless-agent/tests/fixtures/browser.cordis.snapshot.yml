@@ -1,0 +1,16 @@
+# Keyless browser-tools scenario overlay: mounts the browser tools into the
+# shipped headless profile (the base row ships disabled) and pins the mock
+# adapter so the model-driven calls stay deterministic offline.
+
+- id: agent-default-model
+  config:
+    provider: cli-mock
+    model: cli-mock
+
+# The headless profile disables the browser row in dsh-base; enable it here.
+- id: browser
+  disabled: false
+
+- insert:
+    - id: cli-mock-llm
+      name: './snapshot-fixtures/browser-mock-llm.ts'

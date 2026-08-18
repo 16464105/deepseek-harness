@@ -1,0 +1,52 @@
+- dialog "设置":
+  - navigation:
+    - text: 设置
+    - button "通用设置":
+      - img
+      - text: 通用设置
+    - button "模型":
+      - img
+      - text: 模型
+    - button "插件":
+      - img
+      - text: 插件
+    - button "Skills":
+      - img
+      - text: Skills
+    - button "Agent 预设":
+      - img
+      - text: Agent 预设
+    - button "MCP":
+      - img
+      - text: MCP
+  - button "打开配置文件"
+  - button "关闭":
+    - img
+    - text: 关闭
+  - heading "Skill 管理" [level=2]
+  - paragraph: 选择聊天输入框中可见的本地 Skill，并按需重新读取当前工作区目录。
+  - button "刷新目录":
+    - img
+    - text: 刷新目录
+  - paragraph: Skill 就是一个 Markdown 文件：把文件或文件夹放进下面的目录，保存后即可在对话中使用，无需重启或额外配置。
+  - button "打开 Skill 目录":
+    - img
+    - text: 打开 Skill 目录
+  - img
+  - searchbox "搜索 Skill"
+  - text: 2 个 Skill
+  - list:
+    - listitem:
+      - strong: release-helper
+      - text: 项目
+      - paragraph: Prepare a local release
+      - code: filesystem
+      - checkbox "在聊天框显示" [checked]
+      - text: 在聊天框显示
+    - listitem:
+      - strong: workspace-review
+      - text: 项目
+      - paragraph: Review the connected workspace
+      - code: filesystem
+      - checkbox "在聊天框显示" [checked]
+      - text: 在聊天框显示
