@@ -24,6 +24,17 @@ packages:
 # builds must resolve those matching names to this workspace's pinned sources.
 linkWorkspacePackages: true
 
+# Desktop release jobs need both macOS architectures and Windows x64 optional
+# binaries present before Electron Builder computes the packaged dependency graph.
+supportedArchitectures:
+  os:
+    - current
+    - darwin
+    - win32
+  cpu:
+    - arm64
+    - x64
+
 overrides:
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'

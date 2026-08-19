@@ -42,6 +42,7 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`@jridgewell/gen-mapping`](https://github.com/jridgewell/sourcemaps) | MIT |
 | [`@koromix/koffi-darwin-arm64`](https://github.com/Koromix/koffi) | MIT |
 | [`@koromix/koffi-darwin-x64`](https://github.com/Koromix/koffi) | MIT |
+| [`@koromix/koffi-win32-x64`](https://github.com/Koromix/koffi) | MIT |
 | [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) | MIT |
 | [`@opentelemetry/api`](https://github.com/open-telemetry/opentelemetry-js) | Apache-2.0 |
 | [`@opentelemetry/api-logs`](https://github.com/open-telemetry/opentelemetry-js) | Apache-2.0 |
@@ -56,13 +57,13 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`@vscode/ripgrep`](https://github.com/microsoft/vscode-ripgrep) | MIT |
 | [`@vscode/ripgrep-darwin-arm64`](https://github.com/microsoft/vscode-ripgrep) | MIT |
 | [`@vscode/ripgrep-darwin-x64`](https://github.com/microsoft/vscode-ripgrep) | MIT |
+| [`@vscode/ripgrep-win32-x64`](https://github.com/microsoft/vscode-ripgrep) | MIT |
 | [`anser`](https://github.com/IonicaBizau/anser) | MIT |
 | [`chokidar`](https://github.com/paulmillr/chokidar) | MIT |
 | [`clsx`](https://github.com/lukeed/clsx) | MIT |
 | [`commander`](https://github.com/tj/commander.js) | MIT |
 | [`diff`](https://github.com/kpdecker/jsdiff) | BSD-3-Clause |
 | [`dsh-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | MIT |
-| [`dsh-vision-router`](https://github.com/ysr666/dsh-vision-router) | MIT |
 | [`e2b`](https://github.com/e2b-dev/e2b) | MIT |
 | [`eventsource-parser`](https://github.com/rexxars/eventsource-parser) | MIT |
 | [`fflate`](https://github.com/101arrowz/fflate) | MIT |
@@ -85,6 +86,7 @@ External packages that a workspace package resolves at runtime. The tier covers 
 | [`node-addon-require-builtin`](https://www.npmjs.com/package/node-addon-require-builtin) | MIT |
 | [`node-addon-require-builtin-darwin-arm64`](https://www.npmjs.com/package/node-addon-require-builtin) | MIT |
 | [`node-addon-require-builtin-darwin-x64`](https://www.npmjs.com/package/node-addon-require-builtin) | MIT |
+| [`node-addon-require-builtin-win32-x64-msvc`](https://www.npmjs.com/package/node-addon-require-builtin) | MIT |
 | [`node-pty`](https://github.com/microsoft/node-pty) | MIT |
 | [`picomatch`](https://github.com/micromatch/picomatch) | MIT |
 | [`playwright`](https://github.com/microsoft/playwright) | Apache-2.0 |

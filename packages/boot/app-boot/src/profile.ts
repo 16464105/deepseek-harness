@@ -118,7 +118,6 @@ export const PROFILE_TEMPLATES: Record<string, readonly string[]> = {
     '@deepseek-ai/dsh-base',
     '@deepseek-ai/dsh-web-app',
     '@deepseek-ai/dsh-desktop-app',
-    'dsh-vision-router',
     'dsh-better-sidebar',
   ],
 }
@@ -129,13 +128,20 @@ const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   desktop: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app'],
 }
 
-/** Previous desktop templates before the built-in browser bundle superseded the external duplicate. */
+/** Previous desktop templates whose installation-owned plugins are no longer shipped. */
 const LEGACY_DESKTOP_PROFILE_TUPLES: readonly (readonly string[])[] = [
   [
     '@deepseek-ai/dsh-base',
     '@deepseek-ai/dsh-web-app',
     '@deepseek-ai/dsh-desktop-app',
     'dsh-browser',
+    'dsh-vision-router',
+    'dsh-better-sidebar',
+  ],
+  [
+    '@deepseek-ai/dsh-base',
+    '@deepseek-ai/dsh-web-app',
+    '@deepseek-ai/dsh-desktop-app',
     'dsh-vision-router',
     'dsh-better-sidebar',
   ],

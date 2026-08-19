@@ -42,9 +42,15 @@ Build an unpacked application directory for the current architecture when inspec
 npx --yes pnpm@11.7.0 run desktop:package:dir
 ```
 
+Build the Windows x64 NSIS installer on a Windows runner, or from another host only when every native dependency has a Windows x64 prebuild. The repository's `supportedArchitectures` setting installs those Windows optional packages during the ordinary workspace install:
+
+```sh
+npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop exec electron-builder --win nsis --x64 --config.npmRebuild=false
+```
+
 The root commands build the complete repository first. Electron Builder writes artifacts under `apps/desktop/dist/` and derives every platform's application icon from `apps/web/public/favicon.svg`. JavaScript and runtime assets live in `app.asar`; only native addons, required dynamic libraries, ripgrep, and the node-pty helper remain in `app.asar.unpacked`. macOS packages retain only the target architecture's Sharp, Koffi, ripgrep, node-pty, and native-addon binaries, and omit Linux-only Landlock packages. TypeScript sources, declarations, source maps, and package-root test, documentation, and example directories are excluded.
 
-The desktop package is the executable deploy root: its production dependencies explicitly supply every required workspace peer reachable from the shipped profile. `pnpm run verify-runtime-closure` checks this closure before release so Electron Builder cannot silently omit a plugin's service packages.
+The desktop package is the executable deploy root: its production dependencies explicitly supply every required workspace peer reachable from the shipped profile, while its optional dependencies explicitly supply the target-platform Sharp, Koffi, ripgrep, and native-addon binaries that pnpm 11 does not install transitively for Electron Builder. `pnpm run verify-runtime-closure` checks the workspace closure before release; the packaged application must also be inspected for the selected platform binaries before distribution.
 
 ## GitHub Actions release
 

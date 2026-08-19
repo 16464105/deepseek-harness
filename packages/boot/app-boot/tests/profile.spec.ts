@@ -156,7 +156,6 @@ describe('loadProfile', () => {
       '@deepseek-ai/dsh-base',
       '@deepseek-ai/dsh-web-app',
       '@deepseek-ai/dsh-desktop-app',
-      'dsh-vision-router',
       'dsh-better-sidebar',
     ])
     try {
@@ -203,24 +202,26 @@ describe('loadProfile', () => {
     ])
   })
 
-  it('removes the obsolete external desktop browser bundle during migration', () => {
+  it.each([
+    ['external browser and vision router', ['dsh-browser', 'dsh-vision-router']],
+    ['vision router', ['dsh-vision-router']],
+  ])('removes obsolete desktop bundles during migration: %s', (_label, obsolete) => {
     const anchor = stageInstallation({
       '@deepseek-ai/dsh-base': { patch: '[]\n' },
       '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
       '@deepseek-ai/dsh-desktop-app': { patch: '[]\n' },
-      'dsh-vision-router': { patch: '[]\n' },
       'dsh-better-sidebar': { patch: '[]\n' },
     })
     const home = tmp()
     const desktop = resolveProfileDir('desktop', home)
     initProfile(desktop, [
       '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app',
-      'dsh-browser', 'dsh-vision-router', 'dsh-better-sidebar',
+      ...obsolete, 'dsh-better-sidebar',
     ])
     loadProfile('t', 'desktop', anchor, home)
     expect(readProfileManifest('t', desktop).dsh?.profile?.bundles).toEqual([
       '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app',
-      'dsh-vision-router', 'dsh-better-sidebar',
+      'dsh-better-sidebar',
     ])
   })
 

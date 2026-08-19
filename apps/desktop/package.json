@@ -124,18 +124,20 @@
     "@deepseek-ai/dsh-web": "workspace:^",
     "@deepseek-ai/dsh-workflow": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
-    "dsh-better-sidebar": "^0.13.1",
-    "dsh-vision-router": "^1.6.1"
+    "dsh-better-sidebar": "^0.13.1"
   },
   "optionalDependencies": {
     "@img/sharp-darwin-arm64": "0.35.3",
     "@img/sharp-darwin-x64": "0.35.3",
     "@koromix/koffi-darwin-arm64": "3.1.1",
     "@koromix/koffi-darwin-x64": "3.1.1",
+    "@koromix/koffi-win32-x64": "3.1.1",
     "@vscode/ripgrep-darwin-arm64": "1.18.0",
     "@vscode/ripgrep-darwin-x64": "1.18.0",
+    "@vscode/ripgrep-win32-x64": "1.18.0",
     "node-addon-require-builtin-darwin-arm64": "0.1.4",
-    "node-addon-require-builtin-darwin-x64": "0.1.4"
+    "node-addon-require-builtin-darwin-x64": "0.1.4",
+    "node-addon-require-builtin-win32-x64-msvc": "0.1.4"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
