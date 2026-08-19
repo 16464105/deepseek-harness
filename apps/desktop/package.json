@@ -125,7 +125,6 @@
     "@deepseek-ai/dsh-workflow": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
     "dsh-better-sidebar": "^0.13.1",
-    "dsh-browser": "^0.1.0",
     "dsh-vision-router": "^1.6.1"
   },
   "optionalDependencies": {

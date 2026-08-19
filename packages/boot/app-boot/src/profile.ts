@@ -118,7 +118,6 @@ export const PROFILE_TEMPLATES: Record<string, readonly string[]> = {
     '@deepseek-ai/dsh-base',
     '@deepseek-ai/dsh-web-app',
     '@deepseek-ai/dsh-desktop-app',
-    'dsh-browser',
     'dsh-vision-router',
     'dsh-better-sidebar',
   ],
@@ -129,6 +128,18 @@ const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
   desktop: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app'],
 }
+
+/** Previous desktop templates before the built-in browser bundle superseded the external duplicate. */
+const LEGACY_DESKTOP_PROFILE_TUPLES: readonly (readonly string[])[] = [
+  [
+    '@deepseek-ai/dsh-base',
+    '@deepseek-ai/dsh-web-app',
+    '@deepseek-ai/dsh-desktop-app',
+    'dsh-browser',
+    'dsh-vision-router',
+    'dsh-better-sidebar',
+  ],
+]
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
 export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-base']
@@ -307,8 +318,10 @@ function normalizeShippedProfile(name: string, dir: string, manifest: ProfileMan
   const installationOwned = INSTALLATION_OWNED_PROFILE_TUPLES[name]
   const current = PROFILE_TEMPLATES[name]
   const bundles = manifest.dsh?.profile?.bundles
+  const isLegacyDesktop = name === 'desktop' && bundles !== undefined
+    && LEGACY_DESKTOP_PROFILE_TUPLES.some(tuple => sameBundles(bundles, tuple))
   if (installationOwned === undefined || current === undefined || bundles === undefined
-    || !sameBundles(bundles, installationOwned)) return manifest
+    || (!sameBundles(bundles, installationOwned) && !isLegacyDesktop)) return manifest
   const normalized: ProfileManifest = {
     ...manifest,
     dsh: {

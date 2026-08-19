@@ -658,9 +658,6 @@ importers:
       dsh-better-sidebar:
         specifier: ^0.13.1
         version: 0.13.1(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-agent@packages+core+agent)(@deepseek-ai/dsh-client-locale@packages+client+locale)(@deepseek-ai/dsh-client-runtime@packages+client+runtime)(@deepseek-ai/dsh-client-schema-form@packages+client+schema-form)(@deepseek-ai/dsh-client-ui-conversation@packages+client+ui-conversation)(@deepseek-ai/dsh-client-ui-primitives@packages+client+ui-primitives)(@deepseek-ai/dsh-client-ui-settings@packages+client+ui-settings)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(@deepseek-ai/dsh-client-web-react@packages+client+web-react)(@deepseek-ai/dsh-host-webserver@packages+host+webserver)(@deepseek-ai/dsh-invariants@packages+runtime-diagnostics+invariants)(@deepseek-ai/dsh-llm@packages+llm+llm)(@deepseek-ai/dsh-session@packages+core+session)(@deepseek-ai/dsh-settings@packages+settings+settings)(@deepseek-ai/dsh-tools@packages+core+tools)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      dsh-browser:
-        specifier: ^0.1.0
-        version: 0.1.0(@deepseek-ai/cordis@vendor+cordis)
       dsh-vision-router:
         specifier: ^1.6.1
         version: 1.6.1(@deepseek-ai/dsh-anonymous-user-id@packages+identity+anonymous-user-id)(sharp@0.35.3(@types/node@22.20.0))
@@ -13250,11 +13247,6 @@ packages:
       cordis:
         optional: true
 
-  dsh-browser@0.1.0:
-    resolution: {integrity: sha512-VX85jp5SBczvxDDcCNNtpMO4khiopqPTdPvKBI+riL9pCovG7LIU3xD3eD7wBnEGRPZ2rKXPAKSD1OAKAguC8g==}
-    peerDependencies:
-      '@deepseek-ai/cordis': ^4.0.1
-
   dsh-vision-router@1.6.1:
     resolution: {integrity: sha512-XhY1IdGA8rvbwK55gi8ePzvWToyVXGoy0WzC4x5KVYaLPr1NCS3POwVUIXd4Hz/s4QWShL2T4Ms8tJu0XCOQNA==}
     engines: {node: ^22.19.0 || >=24.0.0}
@@ -20132,11 +20124,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  dsh-browser@0.1.0(@deepseek-ai/cordis@vendor+cordis):
-    dependencies:
-      '@deepseek-ai/cordis': link:vendor/cordis
-      playwright-core: 1.61.1
 
   dsh-vision-router@1.6.1(@deepseek-ai/dsh-anonymous-user-id@packages+identity+anonymous-user-id)(sharp@0.35.3(@types/node@22.20.0)):
     dependencies:
