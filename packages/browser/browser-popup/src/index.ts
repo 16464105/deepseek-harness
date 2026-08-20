@@ -114,10 +114,4 @@ export class BrowserPopupService extends TypertRemoteService {
   }
 }
 
-/**
- * Register the browser-popup Remote service.
- * @param ctx - the context whose `browser` service is consumed.
- */
-export function apply(ctx: Context): void {
-  ctx.provide('browserPopup', new BrowserPopupService(ctx))
-}
+export default BrowserPopupService
