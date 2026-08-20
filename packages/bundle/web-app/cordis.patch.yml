@@ -421,6 +421,13 @@
 - id: browser
   disabled: false
 
+# The live browser preview overlay: shows the model-driven Playwright page in
+# a floating top-right popup (Host RPC surface + shell.overlay occupant). Sits
+# beside the browser tool suite; only meaningful where the browser is enabled.
+- insert:
+    - id: browser-popup
+      name: '@deepseek-ai/dsh-browser-popup'
+
 # The preset roster. `config/agent-presets/` ships with the deployment and is
 # read-only (its entries carry `system` trust); `$DSH_HOME/.agent-presets` is
 # where a person — or an agent — authors their own, and carries the same trust

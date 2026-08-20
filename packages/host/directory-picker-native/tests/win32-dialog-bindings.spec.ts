@@ -315,6 +315,47 @@ describe('the worker entry over a mocked process boundary', () => {
     ])
   })
 
+  it('disconnects the worker after the terminal message has flushed', async () => {
+    const posted: { kind: string }[] = []
+    const disconnected: number[] = []
+    process.env.DSH_DIALOG_TITLE = 'Pick'
+    // Simulate the real send: invoke the flush callback for the terminal
+    // message. process.disconnect is mocked to record (never sever) so the
+    // vitest worker's own IPC channel survives; the real close lifecycle
+    // belongs to built-worker.e2e.ts.
+    const disconnect = vi.spyOn(process, 'disconnect').mockImplementation(() => {
+      disconnected.push(1)
+      return true
+    })
+    ;(process as { send?: unknown }).send = (message: { kind: string }, callback?: () => void) => {
+      posted.push(message)
+      if (message.kind !== 'showing') callback?.()
+      return true
+    }
+    vi.doMock('../src/win32-dialog-bindings.ts', () => ({
+      loadWin32DialogBindings: async () => ({
+        setThreadDpiAwareness: () => undefined,
+        coInitializeSta: () => 0,
+        coUninitialize: () => undefined,
+        currentThreadId: () => 11,
+        createFolderDialog: () => ({
+          setOptions: () => 0,
+          setTitle: () => 0,
+          show: () => 0,
+          resultPath: () => ({ hr: 0, path: 'C:\\flushed' }),
+          release: () => undefined,
+        }),
+      }),
+    }))
+    await import('../src/win32-dialog-worker.ts')
+    expect(posted).toEqual([
+      { kind: 'showing', threadId: 11 },
+      { kind: 'done', path: 'C:\\flushed' },
+    ])
+    expect(disconnected).toHaveLength(1)
+    disconnect.mockRestore()
+  })
+
   it('posts the failure message when the native surface cannot load', async () => {
     const { posted } = installBoundary()
     vi.doMock('../src/win32-dialog-bindings.ts', () => ({
@@ -340,15 +381,29 @@ describe('the worker entry over a mocked process boundary', () => {
     }
   })
 
-  it('refuses to run without the dialog title', async () => {
+  it('posts the missing-title failure instead of crashing the worker', async () => {
     delete process.env.DSH_DIALOG_TITLE
-    ;(process as { send?: unknown }).send = () => true
-    await expect(import('../src/win32-dialog-worker.ts')).rejects.toThrow('DSH_DIALOG_TITLE is required')
+    const { posted } = installBoundary()
+    // installBoundary set the title; delete it again after the harness runs.
+    delete process.env.DSH_DIALOG_TITLE
+    await import('../src/win32-dialog-worker.ts')
+    expect(posted).toHaveLength(1)
+    expect(posted[0]?.kind).toBe('error')
+    expect(posted[0]?.message).toContain('DSH_DIALOG_TITLE is required')
   })
 
-  it('refuses to run outside a child process', async () => {
+  it('fails fast with a nonzero exit when spawned without an IPC channel', async () => {
+    // process.exit is typed never; make it throw so the import rejects
+    // instead of terminating the vitest worker.
+    const exit = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+      throw new Error(`process.exit(${String(code)})`)
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     process.env.DSH_DIALOG_TITLE = 'Pick'
     delete (process as { send?: unknown }).send
-    await expect(import('../src/win32-dialog-worker.ts')).rejects.toThrow('must run as a child process')
+    await expect(import('../src/win32-dialog-worker.ts')).rejects.toThrow('process.exit(1)')
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('without an IPC channel'))
+    exit.mockRestore()
+    error.mockRestore()
   })
 })

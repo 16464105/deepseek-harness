@@ -147,6 +147,39 @@ describe('probe', () => {
     await writeFile(join(dir, 'afile'), 'i am a file')
     expect(await probe(join(dir, 'afile', 'child.txt'))).toBeNull()
   })
+
+  it('falls back to a plain stat when bigint stat fails like Electron asar', async () => {
+    const file = join(dir, 'asar.txt')
+    await writeFile(file, 'hi')
+    vi.resetModules()
+    vi.doMock('node:fs/promises', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('node:fs/promises')>()
+      return {
+        ...actual,
+        async stat(path: string, opts?: { bigint?: boolean }) {
+          // Electron's asar fs patch cannot serve bigint stats: it throws the
+          // same TypeError Node raises when number fields meet bigint math.
+          if (opts?.bigint) throw new TypeError('Cannot mix BigInt and other types, use explicit conversions')
+          return await actual.stat(path)
+        },
+      }
+    })
+
+    try {
+      const { probe: isolatedProbe, probeNoFollow: isolatedProbeNoFollow } = await import('../src/fsio.ts')
+      const info = await isolatedProbe(file)
+      expect(info?.type).toBe('file')
+      expect(info?.size).toBe(2)
+      expect(typeof info?.version).toBe('string')
+      const link = join(dir, 'asar-link.txt')
+      await symlink(file, link)
+      const linkInfo = await isolatedProbeNoFollow(link)
+      expect(linkInfo?.type).toBe('symlink')
+    } finally {
+      vi.doUnmock('node:fs/promises')
+      vi.resetModules()
+    }
+  })
 })
 
 describe('probeNoFollow', () => {

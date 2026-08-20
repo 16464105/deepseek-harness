@@ -20,6 +20,12 @@ export interface Win32DialogWorkerLike {
   on(event: 'error', listener: (error: Error) => void): unknown
   on(event: 'exit', listener: (code: number) => void): unknown
   /**
+   * The child's stderr stream, when the spawner pipes it. The driver
+   * collects it so a worker that dies without an IPC message still reports
+   * its real failure (koffi load, COM init, tsx bootstrap) in the error.
+   */
+  stderr?: NodeJS.ReadableStream | null
+  /**
    * Force-stop the child; the abort path's last resort when `WM_CLOSE`
    * never lands (e.g. the dialog window was never created).
    * @returns whether a kill signal was delivered.
@@ -40,6 +46,12 @@ export interface Win32DialogInternals {
   closeThreadWindows?: (threadId: number) => Promise<void>
   /** Abort-service cadence override so tests never wait wall-clock time. */
   closeRetryMs?: number
+  /**
+   * Grace period after the worker exits before the driver assumes the
+   * terminal message was lost. Overridable so tests never wait wall-clock
+   * time.
+   */
+  exitGraceMs?: number
 }
 
 /** The dialog title every host shows. */
@@ -49,6 +61,14 @@ export const DIALOG_TITLE = 'Select Workspace Directory'
 const CLOSE_RETRY_MS = 150
 /** Abort-service attempts before force-terminating the worker. */
 const CLOSE_MAX_ATTEMPTS = 20
+/**
+ * Grace period after the worker exits before the driver assumes the
+ * terminal message was lost. On Windows/Electron the child's exit
+ * notification can be observed before the last queued IPC message reaches
+ * the parent's event loop; a full message round needs more than one
+ * immediate, so the driver waits out this window instead.
+ */
+const EXIT_GRACE_MS = 250
 
 /** Fail loudly if the closed worker-to-driver union gains an unhandled member. */
 /* v8 ignore start -- closed-union backstop; unreachable without a TypeScript contract violation */
@@ -71,17 +91,32 @@ export async function pickWin32Directory(
   const spawnWorker = internals.spawnWorker ?? spawnDialogWorker
   const closeWindows = internals.closeThreadWindows ?? hostCloseThreadWindows
   const closeRetryMs = internals.closeRetryMs ?? CLOSE_RETRY_MS
+  const exitGraceMs = internals.exitGraceMs ?? EXIT_GRACE_MS
 
   const worker: Win32DialogWorkerLike = spawnWorker({ title: DIALOG_TITLE })
   let dialogThreadId: number | undefined
   let closeTimer: NodeJS.Timeout | undefined
+  let exitTimer: NodeJS.Timeout | undefined
   let settled = false
+
+  // The child's stderr, capped so a runaway worker cannot pin memory. The
+  // real spawn pipes stderr; fakes may omit the stream entirely.
+  let stderr = ''
+  const STDERR_CAP = 4096
+  worker.stderr?.on('data', (chunk: unknown) => {
+    if (stderr.length >= STDERR_CAP) return
+    const text = typeof chunk === 'string' ? chunk : String(chunk)
+    stderr = (stderr + text).slice(0, STDERR_CAP)
+  })
+
+  const stderrSuffix = (): string => stderr.trim() === '' ? '' : `; worker stderr: ${stderr.trim()}`
 
   return await new Promise<string | null>((resolve, reject) => {
     const settle = (outcome: () => void): void => {
       if (settled) return
       settled = true
       if (closeTimer !== undefined) clearInterval(closeTimer)
+      if (exitTimer !== undefined) clearTimeout(exitTimer)
       signal.removeEventListener('abort', onAbort)
       worker.unref?.()
       outcome()
@@ -137,7 +172,7 @@ export async function pickWin32Directory(
           return
         case 'error':
           settle(() => {
-            reject(new Error(`win32 folder dialog failed: ${message.message}`))
+            reject(new Error(`win32 folder dialog failed: ${message.message}${stderrSuffix()}`))
           })
           return
         /* v8 ignore next 2 -- closed worker-owned union; a fourth kind becomes a compile error */
@@ -147,13 +182,21 @@ export async function pickWin32Directory(
     })
     worker.on('error', (error: Error) => {
       settle(() => {
-        reject(error)
+        reject(new Error(`${error.message}${stderrSuffix()}`))
       })
     })
-    worker.on('exit', () => {
-      settle(() => {
-        reject(new Error('win32 folder dialog worker exited before reporting a result'))
-      })
+    worker.on('exit', (code) => {
+      // On Windows/Electron, the child's exit notification can be observed
+      // before the last queued IPC message reaches the parent's event loop.
+      // Wait out a grace window for the terminal message instead of betting
+      // on a single immediate; a message that lands first settles the pick
+      // and the pending exit report is discarded by the settled guard.
+      exitTimer = setTimeout(() => {
+        settle(() => {
+          if (signal.aborted) reject(new Error('native directory picker aborted'))
+          else reject(new Error(`win32 folder dialog worker exited (code ${String(code)}) before reporting a result${stderrSuffix()}`))
+        })
+      }, exitGraceMs)
     })
   })
 }

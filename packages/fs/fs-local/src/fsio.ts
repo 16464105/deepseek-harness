@@ -71,7 +71,7 @@ async function readFileAbortable(absolutePath: string, verb: 'read' | 'edit', si
 }
 
 /** Opaque version token from high-resolution identity and freshness metadata. */
-function versionOf(info: BigIntStats): FsVersion {
+function versionOf(info: NormalizedStats): FsVersion {
   return FsVersion(`${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`)
 }
 
@@ -193,7 +193,7 @@ export async function resolveLocalTarget(cwd: string, path: string): Promise<Loc
   }
 }
 
-function pathType(info: Stats | BigIntStats): PathInfo['type'] {
+function pathType(info: NormalizedStats): PathInfo['type'] {
   if (info.isFile()) return 'file'
   /* v8 ignore else -- Windows has no special-entry fixture for the non-directory branch. */
   if (info.isDirectory()) return 'directory'
@@ -201,18 +201,82 @@ function pathType(info: Stats | BigIntStats): PathInfo['type'] {
   return 'other'
 }
 
-function pathLinkType(info: Stats | BigIntStats): PathLinkInfo['type'] {
+function pathLinkType(info: NormalizedStats): PathLinkInfo['type'] {
   if (info.isSymbolicLink()) return 'symlink'
   return pathType(info)
 }
 
-async function probeStats<T extends Stats | BigIntStats>(
+/**
+ * Unified metadata view over bigint and plain `Stats` results. Electron's asar
+ * fs patch returns a number-field `Stats` even for `{ bigint: true }` calls,
+ * which breaks the bigint arithmetic in {@link versionOf} and the mode mask;
+ * this shape normalizes both sources so callers always see bigint fields.
+ */
+interface NormalizedStats {
+  dev: bigint
+  ino: bigint
+  size: bigint
+  mtimeNs: bigint
+  ctimeNs: bigint
+  mode: bigint
+  isFile(): boolean
+  isDirectory(): boolean
+  isSymbolicLink(): boolean
+}
+
+function normalizeBigIntStats(info: BigIntStats): NormalizedStats {
+  return {
+    dev: info.dev,
+    ino: info.ino,
+    size: info.size,
+    mtimeNs: info.mtimeNs,
+    ctimeNs: info.ctimeNs,
+    mode: info.mode,
+    isFile: () => info.isFile(),
+    isDirectory: () => info.isDirectory(),
+    isSymbolicLink: () => info.isSymbolicLink(),
+  }
+}
+
+/** The exact TypeError Electron's asar stat patch throws when it mixes plain-number fields with a bigint request. */
+function isBigIntMixingError(error: unknown): boolean {
+  return error instanceof TypeError && error.message.includes('Cannot mix BigInt and other types')
+}
+
+async function probeStats(
   absolutePath: string,
-  readStats: (path: string) => Promise<T>,
-): Promise<T | null> {
+  readStats: (path: string) => Promise<BigIntStats>,
+  fallbackReadStats: (path: string) => Promise<Stats>,
+): Promise<NormalizedStats | null> {
   try {
-    return await readStats(absolutePath)
+    return normalizeBigIntStats(await readStats(absolutePath))
   } catch (error: unknown) {
+    // Electron's asar patch cannot serve bigint stats; fall back to the plain
+    // form and widen its number fields. This keeps listing/reading skills and
+    // other packaged files working inside asar bundles.
+    if (isBigIntMixingError(error)) {
+      try {
+        const plain = await fallbackReadStats(absolutePath)
+        return {
+          dev: BigInt(plain.dev),
+          ino: BigInt(plain.ino),
+          size: BigInt(plain.size),
+          mtimeNs: BigInt(Math.floor(plain.mtimeMs)) * 1_000_000n,
+          ctimeNs: BigInt(Math.floor(plain.ctimeMs)) * 1_000_000n,
+          mode: BigInt(plain.mode),
+          isFile: () => plain.isFile(),
+          isDirectory: () => plain.isDirectory(),
+          isSymbolicLink: () => plain.isSymbolicLink(),
+        }
+      } catch (fallbackError: unknown) {
+        // ENOENT (no such file) and ENOTDIR (a parent segment is a file) both mean
+        // the target is absent; any other metadata failure is a real permission/IO
+        // fault.
+        /* v8 ignore next -- a non-ENOENT/ENOTDIR metadata failure needs a permission/IO fault; surface it. */
+        if (!isENOENT(fallbackError) && !isENOTDIR(fallbackError)) throw fallbackError
+        return null
+      }
+    }
     // ENOENT (no such file) and ENOTDIR (a parent segment is a file) both mean
     // the target is absent; any other metadata failure is a real permission/IO
     // fault.
@@ -228,7 +292,7 @@ async function probeStats<T extends Stats | BigIntStats>(
  * @returns the metadata, or null when the path — or a parent segment — does not exist.
  */
 export async function probe(absolutePath: string): Promise<PathInfo | null> {
-  const info = await probeStats(absolutePath, path => stat(path, { bigint: true }))
+  const info = await probeStats(absolutePath, path => stat(path, { bigint: true }), path => stat(path))
   if (!info) return null
   return {
     version: versionOf(info),
@@ -244,7 +308,7 @@ export async function probe(absolutePath: string): Promise<PathInfo | null> {
  * @returns path-entry metadata, or null when the entry is absent.
  */
 export async function probeNoFollow(absolutePath: string): Promise<PathLinkInfo | null> {
-  const info = await probeStats(absolutePath, path => lstat(path, { bigint: true }))
+  const info = await probeStats(absolutePath, path => lstat(path, { bigint: true }), path => lstat(path))
   if (!info) return null
   return {
     version: versionOf(info),

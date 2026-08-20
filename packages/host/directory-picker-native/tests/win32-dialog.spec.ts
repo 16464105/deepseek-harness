@@ -7,12 +7,15 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { PassThrough } from 'node:stream'
 import { describe, expect, it, vi } from 'vitest'
 import { pickWin32Directory, type Win32DialogInternals, type Win32DialogWorkerLike } from '../src/win32-dialog.ts'
+import { unpackedWorkerPath, workerPath } from '../src/win32-dialog-host.ts'
 import type { Win32DialogWorkerMessage } from '../src/win32-dialog-worker.ts'
 
 class FakeWorker extends EventEmitter implements Win32DialogWorkerLike {
   kill = vi.fn(() => true)
+  stderr = new PassThrough()
   post(message: Win32DialogWorkerMessage): void {
     this.emit('message', message)
   }
@@ -34,12 +37,48 @@ function harness(overrides: Partial<Win32DialogInternals> = {}): Harness {
       spawnWorker: () => worker,
       closeThreadWindows: close,
       closeRetryMs: 1,
+      // Keep the exit grace window sub-millisecond so silent-exit cases
+      // never wait wall-clock time; the regression cases below override it.
+      exitGraceMs: 1,
       ...overrides,
     },
   }
 }
 
 const live = (): AbortSignal => new AbortController().signal
+
+describe('unpackedWorkerPath', () => {
+  const win32Path = 'C:\\Program Files\\DeepSeek Harness\\resources\\app.asar\\node_modules\\@deepseek-ai\\dsh-host-directory-picker-native\\lib\\worker.cjs'
+  const posixPath = '/Applications/DeepSeek Harness.app/Contents/Resources/app.asar/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/worker.cjs'
+
+  it('redirects the packaged worker into app.asar.unpacked on win32', () => {
+    expect(unpackedWorkerPath(win32Path, 'win32'))
+      .toBe('C:\\Program Files\\DeepSeek Harness\\resources\\app.asar.unpacked\\node_modules\\@deepseek-ai\\dsh-host-directory-picker-native\\lib\\worker.cjs')
+  })
+
+  it('redirects the packaged worker into app.asar.unpacked on posix', () => {
+    expect(unpackedWorkerPath(posixPath, 'darwin'))
+      .toBe('/Applications/DeepSeek Harness.app/Contents/Resources/app.asar.unpacked/node_modules/@deepseek-ai/dsh-host-directory-picker-native/lib/worker.cjs')
+  })
+
+  it('leaves a source-plane path untouched', () => {
+    const source = '/Users/dev/deepseek-harness/packages/host/directory-picker-native/lib/worker.cjs'
+    expect(unpackedWorkerPath(source, 'win32')).toBe(source)
+  })
+
+  it('does not rewrite a path where app.asar is not a path segment', () => {
+    const odd = '/some-app.asar-file/node_modules/x/worker.cjs'
+    expect(unpackedWorkerPath(odd, 'darwin')).toBe('/some-app.asar-file/node_modules/x/worker.cjs')
+  })
+
+  it('resolves the worker next to the host module for the current platform', () => {
+    // The source-plane host module has no app.asar segment, so the default
+    // (uninjected) resolution is a no-op replace that lands on worker.cjs.
+    const path = workerPath()
+    expect(path.endsWith('worker.cjs')).toBe(true)
+    expect(path).not.toContain('app.asar')
+  })
+})
 
 describe('pickWin32Directory', () => {
   it('resolves the selected path and the cancellation null', async () => {
@@ -69,8 +108,60 @@ describe('pickWin32Directory', () => {
 
     const silent = harness()
     const exiting = pickWin32Directory(live(), silent.internals)
-    silent.worker.emit('exit', 0)
-    await expect(exiting).rejects.toThrow('exited before reporting a result')
+    silent.worker.emit('exit', 1)
+    await expect(exiting).rejects.toThrow('exited (code 1) before reporting a result')
+  })
+
+  it('accepts a terminal message that lands after the worker exit notice', async () => {
+    // Windows/Electron can surface the child's exit before the last queued
+    // IPC message reaches the parent's event loop. The grace window must
+    // let that message settle the pick instead of reporting a false exit.
+    const { worker, internals } = harness({ exitGraceMs: 50 })
+    const picked = pickWin32Directory(live(), internals)
+    worker.emit('exit', 0)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    worker.post({ kind: 'done', path: 'C:\\late' })
+    await expect(picked).resolves.toBe('C:\\late')
+  })
+
+  it('rejects after the exit grace window when the terminal message never lands', async () => {
+    const { worker, internals } = harness({ exitGraceMs: 10 })
+    const picked = pickWin32Directory(live(), internals)
+    worker.emit('exit', 0)
+    await expect(picked).rejects.toThrow('exited (code 0) before reporting a result')
+  })
+
+  it('attaches the worker stderr to a silent-exit error for diagnosis', async () => {
+    const { worker, internals } = harness({ exitGraceMs: 10 })
+    const picked = pickWin32Directory(live(), internals)
+    worker.stderr.write('koffi: cannot load ole32.dll\n')
+    worker.emit('exit', 1)
+    await expect(picked).rejects.toThrow('exited (code 1) before reporting a result; worker stderr: koffi: cannot load ole32.dll')
+  })
+
+  it('attaches the worker stderr to a reported dialog failure', async () => {
+    const { worker, internals } = harness()
+    const picked = pickWin32Directory(live(), internals)
+    worker.stderr.write('COM init refused\n')
+    worker.post({ kind: 'error', message: 'CoCreateInstance failed' })
+    await expect(picked).rejects.toThrow('win32 folder dialog failed: CoCreateInstance failed; worker stderr: COM init refused')
+  })
+
+  it('caps the collected stderr so a runaway worker cannot pin memory', async () => {
+    const { worker, internals } = harness({ exitGraceMs: 10 })
+    const picked = pickWin32Directory(live(), internals)
+    worker.stderr.write('x'.repeat(10_000))
+    worker.emit('exit', 1)
+    await expect(picked).rejects.toThrow(/worker stderr: x{4096}$/)
+  })
+
+  it('reports an abort, not a silent exit, when the worker exits after an abort', async () => {
+    const { worker, internals } = harness({ exitGraceMs: 10 })
+    const controller = new AbortController()
+    const picked = expect(pickWin32Directory(controller.signal, internals)).rejects.toThrow('native directory picker aborted')
+    controller.abort()
+    worker.emit('exit', 0)
+    await picked
   })
 
   it('settles once: a late exit after the result is inert', async () => {

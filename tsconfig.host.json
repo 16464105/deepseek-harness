@@ -195,6 +195,7 @@
     { "path": "./packages/e2b/e2b" },
     { "path": "./packages/e2b/subprocess-e2b" },
     { "path": "./packages/browser/browser" },
+    { "path": "./packages/browser/browser-popup/tsconfig.host.json" },
     { "path": "./packages/shell/shell" },
     { "path": "./packages/terminal/terminal" },
     { "path": "./packages/terminal/terminal-bash" },
