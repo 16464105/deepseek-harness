@@ -1195,6 +1195,9 @@ importers:
 
   packages/api/remotes:
     dependencies:
+      '@deepseek-ai/dsh-browser-popup':
+        specifier: workspace:^
+        version: link:../../browser/browser-popup
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
@@ -1374,6 +1377,40 @@ importers:
         specifier: workspace:^
         version: link:../../core/tools
 
+  packages/browser/browser-popup:
+    dependencies:
+      '@deepseek-ai/dsh-browser':
+        specifier: workspace:^
+        version: link:../browser
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/dsh-browser':
+        specifier: workspace:^
+        version: link:../browser
+      '@deepseek-ai/dsh-client-runtime':
+        specifier: workspace:^
+        version: link:../../client/runtime
+      '@deepseek-ai/dsh-client-ui-layout':
+        specifier: workspace:^
+        version: link:../../client/ui-layout
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: workspace:^
+        version: link:../../client/ui-slots
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+
   packages/bundle/base:
     dependencies:
       '@deepseek-ai/cordis-plugin-hmr':
@@ -1406,6 +1443,9 @@ importers:
       '@deepseek-ai/dsh-browser':
         specifier: workspace:^
         version: link:../../browser/browser
+      '@deepseek-ai/dsh-browser-popup':
+        specifier: workspace:^
+        version: link:../../browser/browser-popup
       '@deepseek-ai/dsh-command-compact':
         specifier: workspace:^
         version: link:../../compaction/command-compact
@@ -1620,6 +1660,9 @@ importers:
 
   packages/bundle/desktop-app:
     dependencies:
+      '@deepseek-ai/dsh-browser-popup':
+        specifier: workspace:^
+        version: link:../../browser/browser-popup
       '@deepseek-ai/dsh-llm-tencent-codebuddy':
         specifier: workspace:^
         version: link:../../llm/llm-tencent-codebuddy
@@ -1679,6 +1722,9 @@ importers:
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:^
         version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-browser-popup':
+        specifier: workspace:^
+        version: link:../../browser/browser-popup
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:^
         version: link:../../client/connection
@@ -3552,6 +3598,9 @@ importers:
       '@deepseek-ai/dsh-client-web-react':
         specifier: workspace:^
         version: link:../web-react
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
       react:
         specifier: ^18.2.0
         version: 18.3.1
