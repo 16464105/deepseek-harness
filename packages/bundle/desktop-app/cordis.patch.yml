@@ -27,7 +27,3 @@
 - insert:
     - id: llm-tencent-codebuddy
       name: '@deepseek-ai/dsh-llm-tencent-codebuddy'
-
-- insert:
-    - id: browser-popup
-      name: '@deepseek-ai/dsh-browser-popup'
