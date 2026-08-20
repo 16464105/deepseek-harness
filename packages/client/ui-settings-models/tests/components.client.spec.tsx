@@ -9,7 +9,7 @@ import {
   ModelsSection, needsSetup, providerCopy, providerTargetLabel, removeProviderProfile,
 } from '../src/client/ModelsSection.tsx'
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
-import { pathOps } from '../src/client/ProviderEditor.tsx'
+import { pathOps, stripModelReasoningEfforts } from '../src/client/ProviderEditor.tsx'
 import {
   DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateModelRows,
 } from '../src/client/DeepSeekModelsEditor.tsx'
@@ -374,6 +374,25 @@ describe('ModelsSection', () => {
       .toEqual([{ op: 'set', path: ['b'], value: 2 }, { op: 'set', path: ['d'], value: 3 }])
     expect(pathOps([], undefined, {})).toEqual([])
     expect(pathOps([], { a: 1 }, { a: 1 })).toEqual([])
+  })
+
+  it('strips reasoningEfforts from model rows for the authoritative schema pass', () => {
+    expect(stripModelReasoningEfforts({})).toEqual({})
+    expect(stripModelReasoningEfforts({ models: [] })).toEqual({ models: [] })
+    const clean = { models: [{ id: 'a', name: 'A' }] }
+    expect(stripModelReasoningEfforts(clean)).toEqual(clean)
+    const dirty = {
+      models: [
+        { id: 'auto', name: 'Auto', reasoningEfforts: { low: 'low', high: 'high' } },
+        { id: 'new' },
+      ],
+    }
+    expect(stripModelReasoningEfforts(dirty)).toEqual({
+      models: [
+        { id: 'auto', name: 'Auto' },
+        { id: 'new' },
+      ],
+    })
   })
 
   it('stores a typed key write-only from the setup card without touching settings', async () => {

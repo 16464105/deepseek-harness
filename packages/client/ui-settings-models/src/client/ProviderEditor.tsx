@@ -107,6 +107,29 @@ function draftAt(namespace: SettingsNamespaceView, path: readonly string[]): Rec
  * @param after - the subtree as edited.
  * @returns ordered set/unset ops; empty when nothing changed.
  */
+/**
+ * A draft copy with every model row's `reasoningEfforts` field removed. This
+ * card does not edit the field (it is a per-model capability the composer's
+ * picker owns), so a row can carry one only through default-catalog
+ * materialization; dropping it never loses user input made in this card.
+ * @param draft - the candidate section draft.
+ * @returns a new draft with `reasoningEfforts` stripped from each model row;
+ *   the original when no row carries the field.
+ */
+function stripModelReasoningEfforts(draft: Record<string, unknown>): Record<string, unknown> {
+  const models = draft['models']
+  if (!Array.isArray(models) || models.length === 0) return draft
+  let stripped: number = 0
+  const next = models.map((row): unknown => {
+    if (typeof row !== 'object' || row === null || !('reasoningEfforts' in row)) return row
+    stripped += 1
+    const copy = { ...row as Record<string, unknown> }
+    Reflect.deleteProperty(copy, 'reasoningEfforts')
+    return copy
+  })
+  return stripped > 0 ? { ...draft, models: next } : draft
+}
+
 export function pathOps(
   base: readonly string[],
   before: unknown,
@@ -258,6 +281,24 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       : materializesNativeProfile
         ? [{ op: 'set', path: [...settingsPath], value: {} }]
         : pathOps(settingsPath, committedOriginal, next)
+    /** Persist one candidate draft through the authoritative Host schema. */
+    const save = async (candidate: Record<string, unknown>): Promise<string | undefined> => {
+      const candidateOps: SettingsPathOpView[] = props.credentialOnly === true
+        ? []
+        : materializesNativeProfile
+          ? [{ op: 'set', path: [...settingsPath], value: {} }]
+          : pathOps(settingsPath, committedOriginal, candidate)
+      const response = await api.settings.mutate({ ns, ops: candidateOps, expectedRevision })
+      if (!response.result.ok) {
+        return response.result.error.code === 'settings-conflict'
+          ? t('conflict')
+          : response.result.error.message
+      }
+      setCommittedOriginal(getPath(response.result.value.user, settingsPath))
+      setExpectedRevision(response.result.value.revision)
+      setDraft(candidate)
+      return undefined
+    }
     if (ops.length > 0) {
       // Credentials are independent of settings. Avoid resolving schema
       // defaults when a key-only edit has no settings op; some adapters expose
@@ -276,17 +317,19 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
       if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
         const sectionError = validateDraft(node, next)
-        if (sectionError !== undefined) return sectionError
+        if (sectionError !== undefined) {
+          // This card never edits `reasoningEfforts` (a per-model capability the
+          // composer's picker owns), so a draft row can carry one only through
+          // default-catalog materialization. A serialized-schema drift between
+          // Host and client can make the rehydrated validator reject a dict the
+          // Host's own schema accepts; drop the unedited field and re-validate so
+          // the write is judged by the Host's authoritative schema.
+          const stripped = stripModelReasoningEfforts(next)
+          if (validateDraft(node, stripped) !== undefined) return sectionError
+          return save(stripped)
+        }
       }
-      const response = await api.settings.mutate({ ns, ops, expectedRevision })
-      if (!response.result.ok) {
-        return response.result.error.code === 'settings-conflict'
-          ? t('conflict')
-          : response.result.error.message
-      }
-      setCommittedOriginal(getPath(response.result.value.user, settingsPath))
-      setExpectedRevision(response.result.value.revision)
-      setDraft(next)
+      return save(next)
     }
     if (keyValue.length > 0) {
       const stored = await api.credentials.set({ ref: keyRef, value: keyValue })
