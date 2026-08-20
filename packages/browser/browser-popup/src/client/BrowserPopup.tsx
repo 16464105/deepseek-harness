@@ -1,8 +1,10 @@
 /**
  * The browser preview overlay component: polls the Host `browserPopup`
- * Remote service every 1.5s while expanded, decodes the base64 PNG via
+ * Remote service every 1.5s while visible, decodes the base64 PNG via
  * `createImageBitmap`, and paints it on a canvas at native resolution
- * (CSS scales for display).
+ * (CSS scales for display). Rendering is fully controlled by the parent:
+ * the component renders nothing until `visible` is true, and the close
+ * button reports back through `onClose`.
  * @module @deepseek-ai/dsh-browser-popup/client/BrowserPopup
  */
 
@@ -16,15 +18,23 @@ export const REFRESH_MS = 1500
 /** Collapsed (default) overlay width, in pixels. */
 export const DEFAULT_WIDTH = 340
 
+/** Props of {@link BrowserPopup}. */
+export interface BrowserPopupProps {
+  /** The client context whose `remote.browserPopup` is polled. */
+  ctx: ClientContext
+  /** Close the overlay (hide it entirely). */
+  onClose: () => void
+}
+
 /**
- * The floating overlay occupant for `shell.overlay`. Polls the
- * `remote.browserPopup` Remote while expanded, decodes the base64 PNG, and
- * paints it onto a canvas at native resolution.
- * @param ctx - the client context whose `remote.browserPopup` is polled.
+ * The floating browser preview overlay. Polls the `remote.browserPopup`
+ * Remote while mounted, decodes the base64 PNG, and paints it onto a canvas
+ * at native resolution.
+ * @param props - the client context and the close callback.
  * @returns the overlay element.
  */
-export function BrowserPopup(ctx: ClientContext): ReactElement {
-  const [expanded, setExpanded] = useState(false)
+export function BrowserPopup(props: BrowserPopupProps): ReactElement {
+  const { ctx, onClose } = props
   const [maximized, setMaximized] = useState(false)
   const [url, setUrl] = useState('未打开页面')
   const [title, setTitle] = useState('')
@@ -90,7 +100,6 @@ export function BrowserPopup(ctx: ClientContext): ReactElement {
   }
 
   useEffect(() => {
-    if (!expanded) return undefined
     let alive = true
     const run = async (): Promise<void> => {
       if (!alive) return
@@ -102,7 +111,7 @@ export function BrowserPopup(ctx: ClientContext): ReactElement {
       alive = false
       window.clearInterval(timer)
     }
-  }, [expanded])
+  }, [])
 
   const btn = (text: string, onClick: () => void): ReactElement => (
     <button
@@ -115,25 +124,6 @@ export function BrowserPopup(ctx: ClientContext): ReactElement {
       {text}
     </button>
   )
-
-  if (!expanded) {
-    return (
-      <div
-        onClick={() => { setExpanded(true) }}
-        title="浏览器画面"
-        style={{
-          position: 'fixed', right: '16px', top: '16px', zIndex: 2147483000,
-          background: '#2a2a38', border: '1px solid #3a3a4a', borderRadius: '999px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)', color: '#e8e8f0', cursor: 'pointer',
-          fontFamily: 'system-ui, sans-serif', fontSize: '13px', padding: '8px 14px',
-          display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none',
-        }}
-      >
-        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4caf50', display: 'inline-block' }} />
-        浏览器画面
-      </div>
-    )
-  }
 
   const width = maximized ? 'min(92vw - 32px, 1280px)' : `${DEFAULT_WIDTH}px`
   const maxHeight = maximized ? '90vh' : '70vh'
@@ -162,7 +152,7 @@ export function BrowserPopup(ctx: ClientContext): ReactElement {
         </span>
         {btn('⟳', () => { void refresh() })}
         {btn(maximized ? '⤡' : '⛶', () => { setMaximized(!maximized) })}
-        {btn('✕', () => { setExpanded(false) })}
+        {btn('✕', onClose)}
       </div>
       <div
         ref={bodyRef}

@@ -7,7 +7,8 @@
   },
   "files": [
     "src/client/index.ts",
-    "src/client/BrowserPopup.tsx"
+    "src/client/BrowserPopup.tsx",
+    "src/client/BrowserPopupAction.tsx"
   ],
   "references": [
     {
@@ -27,6 +28,9 @@
     },
     {
       "path": "../../runtime-diagnostics/invariants"
+    },
+    {
+      "path": "../../client/ui-conversation"
     }
   ]
 }
