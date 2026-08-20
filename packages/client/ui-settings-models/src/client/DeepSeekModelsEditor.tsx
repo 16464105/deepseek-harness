@@ -132,6 +132,12 @@ export interface DeepSeekModelsEditorProps {
   defaultContextWindow: number | undefined
   /** Fallback output cap used when a row omits its exact value. */
   defaultMaxTokens: number | undefined
+  /**
+   * Fields seeded on a newly added row beyond its id. DeepSeek's advisory
+   * catalog has none, while Tencent's fixed directory seeds image input and the
+   * full reasoning effort ladder so a hand-added model can actually use them.
+   */
+  newRowDefaults?: DeepSeekModelDraft
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable every mutation. */
@@ -354,7 +360,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
         type="button"
         className={styles['addModelButton']}
         disabled={props.disabled}
-        onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '' }]) }}
+        onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '', ...props.newRowDefaults }]) }}
       >
         <IconPlusOutline16 size={14} />
         {props.t('addModel')}

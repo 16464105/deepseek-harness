@@ -586,7 +586,7 @@ describe('ModelsSection', () => {
         value: [
           { id: 'auto', name: 'Auto', contextWindow: 168_000, maxTokens: 32_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
           { id: 'gpt-5.6-sol', name: 'GPT-5.6-Sol', contextWindow: 1_000_000, maxTokens: 128_000, input: ['text', 'image'], reasoningEfforts: false, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
-          { id: 'gateway-extra', name: 'Gateway Extra', contextWindow: 32_000 },
+          { id: 'gateway-extra', name: 'Gateway Extra', contextWindow: 32_000, input: ['text', 'image'], reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' }, compat: { thinkingFormat: 'openai', supportsReasoningEffort: true } },
         ],
       }],
       expectedRevision: 0,

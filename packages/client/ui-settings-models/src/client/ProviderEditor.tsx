@@ -111,7 +111,11 @@ function draftAt(namespace: SettingsNamespaceView, path: readonly string[]): Rec
  * A draft copy with every model row's `reasoningEfforts` field removed. This
  * card does not edit the field (it is a per-model capability the composer's
  * picker owns), so a row can carry one only through default-catalog
- * materialization; dropping it never loses user input made in this card.
+ * materialization. The stripped copy exists solely as a client-side validation
+ * aid when the rehydrated schema rejects a dict the Host accepts: the caller
+ * validates the stripped copy to decide whether to submit, but persists the
+ * unstripped draft, because dropping `reasoningEfforts` from the saved catalog
+ * would silently disable reasoning on every model it replaces.
  * @param draft - the candidate section draft.
  * @returns a new draft with `reasoningEfforts` stripped from each model row;
  *   the original when no row carries the field.
@@ -322,11 +326,14 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
           // composer's picker owns), so a draft row can carry one only through
           // default-catalog materialization. A serialized-schema drift between
           // Host and client can make the rehydrated validator reject a dict the
-          // Host's own schema accepts; drop the unedited field and re-validate so
-          // the write is judged by the Host's authoritative schema.
+          // Host's own schema accepts; the stripped copy is a client-side
+          // validation aid only. The write must persist `next` unchanged: the
+          // Host's authoritative schema accepts the full dict, and dropping
+          // `reasoningEfforts` from the saved catalog would silently disable
+          // reasoning on every model it replaces.
           const stripped = stripModelReasoningEfforts(next)
           if (validateDraft(node, stripped) !== undefined) return sectionError
-          return save(stripped)
+          return save(next)
         }
       }
       return save(next)
@@ -528,6 +535,15 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                         ? defaultContextWindow
                         : undefined}
                       defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
+                      {...family === 'tencent'
+                        ? {
+                          newRowDefaults: {
+                            input: ['text', 'image'],
+                            reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' },
+                            compat: { thinkingFormat: 'openai', supportsReasoningEffort: true },
+                          },
+                        }
+                        : {}}
                     />
                   )
                   : <ModelListEditor {...catalogProps} probe={probe} probeBlocked={keyFailure} api={api} />}
