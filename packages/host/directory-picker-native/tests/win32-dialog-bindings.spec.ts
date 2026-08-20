@@ -395,7 +395,7 @@ describe('the worker entry over a mocked process boundary', () => {
   it('fails fast with a nonzero exit when spawned without an IPC channel', async () => {
     // process.exit is typed never; make it throw so the import rejects
     // instead of terminating the vitest worker.
-    const exit = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null) => {
       throw new Error(`process.exit(${String(code)})`)
     })
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)

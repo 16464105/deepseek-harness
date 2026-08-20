@@ -116,7 +116,7 @@ function draftAt(namespace: SettingsNamespaceView, path: readonly string[]): Rec
  * @returns a new draft with `reasoningEfforts` stripped from each model row;
  *   the original when no row carries the field.
  */
-function stripModelReasoningEfforts(draft: Record<string, unknown>): Record<string, unknown> {
+export function stripModelReasoningEfforts(draft: Record<string, unknown>): Record<string, unknown> {
   const models = draft['models']
   if (!Array.isArray(models) || models.length === 0) return draft
   let stripped: number = 0
