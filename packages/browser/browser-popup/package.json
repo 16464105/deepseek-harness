@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-browser-popup",
   "description": "Live browser preview popup: shows the model-driven Playwright page as a floating overlay in the DSH web client",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.8",
   "publishConfig": {
     "access": "public"
   },

@@ -83,6 +83,11 @@ export interface PiAiAdapterOptions {
    * The returned headers are merged under Harness attribution headers.
    */
   prepareRequest?: (request: PiAiRequestContext) => PiAiPreparedRequest
+  /**
+   * Observe one assistant history message degrading to provider-neutral
+   * conversion because its stored replay state is unusable by this build.
+   */
+  onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
 }
 
 /** Frozen request facts passed to {@link PiAiAdapterOptions.prepareRequest}. */
@@ -333,9 +338,12 @@ export class PiAiAdapter extends LlmAdapter {
       if (containsImage && attachments === undefined) {
         throw new LlmError('pi-ai image input requires the durable attachment service', 'UNSUPPORTED_CONTENT')
       }
+      const onReplayDegrade = (reason: string): void => {
+        this.config.onReplayDegrade?.({ provider: options.provider, model: options.model, reason })
+      }
       const context = attachments === undefined
-        ? toPiContext(options)
-        : await toPiContext(options, attachments)
+        ? toPiContext(options, undefined, onReplayDegrade)
+        : await toPiContext(options, attachments, onReplayDegrade, profile.maxRequestImageBytes)
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...prepared?.onPayload === undefined ? {} : { onPayload: prepared.onPayload },

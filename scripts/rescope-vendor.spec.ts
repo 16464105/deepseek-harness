@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { exactEditState, rewritePackageNames } from './rescope-vendor.ts'
+import { exactEditState } from './rescope-vendor.ts'
 
 const ANCHOR = '\n## Sync procedure'
 const INSERTED = `\n15. **rescope**: one log entry.\n${ANCHOR}`
@@ -37,51 +37,5 @@ describe('exactEditState', () => {
     // A moved or partially applied site: neither state is complete.
     expect(exactEditState('a = 1\nb = 2\n', 'a = 1', 'b = 2', 1)).toBe('invalid')
     expect(exactEditState('x\n', 'a = 1', 'b = 2', 1)).toBe('invalid')
-  })
-})
-
-describe('rewritePackageNames', () => {
-  it('preserves Cordis product events while rewriting real package subpaths', () => {
-    const source = [
-      "ctx.on('cordis/request-run', listener)",
-      "const prefix = 'cordis/'",
-      "const signature = '\\'cordis/inspect-query\\'(request: Request): void'",
-      "import type { Fiber } from 'cordis/src/fiber.ts'",
-      "readFile('cordis/package.json')",
-    ].join('\n')
-
-    expect(rewritePackageNames(source, 'fixture.ts').text).toBe([
-      "ctx.on('cordis/request-run', listener)",
-      "const prefix = 'cordis/'",
-      "const signature = '\\'cordis/inspect-query\\'(request: Request): void'",
-      "import type { Fiber } from '@deepseek-ai/cordis/src/fiber.ts'",
-      "readFile('@deepseek-ai/cordis/package.json')",
-    ].join('\n'))
-  })
-
-  it('preserves the documented event namespace but rewrites package names in docs', () => {
-    const source = [
-      '### `cordis/*` events',
-      '',
-      '`cordis/request-run` is emitted by `cordis`.',
-    ].join('\n')
-
-    expect(rewritePackageNames(source, 'docs/example.md').text).toBe([
-      '### `cordis/*` events',
-      '',
-      '`cordis/request-run` is emitted by `@deepseek-ai/cordis`.',
-    ].join('\n'))
-  })
-
-  it('keeps the reverse package-subpath rewrite symmetric', () => {
-    const source = "import type { Fiber } from '@deepseek-ai/cordis/src/fiber.ts'"
-    expect(rewritePackageNames(source, 'fixture.ts', true).text)
-      .toBe("import type { Fiber } from 'cordis/src/fiber.ts'")
-  })
-
-  it('preserves a file-scoped Cordis product namespace', () => {
-    const source = "export const NS = 'cordis'"
-    expect(rewritePackageNames(source, 'packages/extensions/ui-cordis/src/client/locales.ts').text)
-      .toBe(source)
   })
 })

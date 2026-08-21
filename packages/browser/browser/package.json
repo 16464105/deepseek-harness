@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-browser",
   "description": "Model-facing browser-operation tools (browser_navigate, browser_click, browser_type, browser_press_key, browser_snapshot, browser_screenshot) driving a persistent local Chromium through Playwright",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.8",
   "publishConfig": {
     "access": "public"
   },
