@@ -17,6 +17,7 @@ import Loader, { type Entry, type EntryOptions } from '@deepseek-ai/cordis-plugi
 import Include, { applyEntryPatches, entryListSchema, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import Group from '@deepseek-ai/cordis-plugin-group'
 import { dshHomePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { installInstallationResolveHook } from './installation-resolve-hook.ts'
 import { createLaunchEnvironmentSnapshot, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import type {} from '@deepseek-ai/cordis-plugin-hmr'
 // Side-effect type import: resolves `ctx.get('systemPrompt')` to the service.
@@ -29,6 +30,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
+export { installInstallationResolveHook } from './installation-resolve-hook.ts'
 export {
   composeEntries,
   DEFAULT_PROFILE_BUNDLES,
@@ -481,7 +483,10 @@ function groupedDump(
  * @param bareModuleBaseUrl - optional installed-host base for bare package
  * names; relative names continue to resolve beside the configuration file,
  * and a bare name the host cannot answer falls back to that file's own
- * directory (the healed profile fallback) before failing.
+ * directory (the healed profile fallback) before failing. Also installs the
+ * process-wide ESM resolve hook so nested imports inside an out-of-tree
+ * plugin can reach the same installation when the profile fallback symlink
+ * points into `app.asar`.
  * @returns the created root Include entry, or `undefined` when a surface
  * disposed the whole tree (taking the Loader service with it) while the
  * transactional create was still settling entry lifecycle.
@@ -493,6 +498,7 @@ export async function mountRootInclude(
   bareModuleBaseUrl?: string,
 ): Promise<Entry | undefined> {
   if (bareModuleBaseUrl !== undefined) {
+    installInstallationResolveHook(bareModuleBaseUrl)
     const hostRequire = createRequire(bareModuleBaseUrl)
     // A bare name the installed host cannot resolve still resolves beside the
     // configuration file: a source-checkout app anchor (`apps/cli`) does not
@@ -763,7 +769,8 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
  * @param prepare - optional host setup run after Loader installation and before any config-tree entry mounts.
  * @param bareModuleBaseUrl - optional installed-host base for bare package
  * names; use it when the host, rather than the configuration project, owns the
- * complete plugin set.
+ * complete plugin set. Same value also installs the process-wide ESM resolve
+ * hook used by nested imports inside out-of-tree plugins.
  * @returns the root context once every entry has started, or as soon as a
  * surface disposed the tree while startup was still in flight.
  * @throws a labelled error after disposing the partial context — `host

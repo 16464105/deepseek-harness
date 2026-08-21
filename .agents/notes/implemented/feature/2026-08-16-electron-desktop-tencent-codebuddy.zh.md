@@ -18,7 +18,7 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 **腾讯协议配置固定，可选模型则跟随本地 CodeBuddy 桌面客户端。** `dsh-llm-tencent-codebuddy` 持有 `https://copilot.tencent.com/v2` 端点、OpenAI Chat Completions 协议、CodeBuddy 路由／IDE 标头、请求身份、消息归一化、流式 usage、最小输出限制，以及从 TT Switch 实现核对的 tool-choice 适配。腾讯只从当前 user 消息处理图片，而 Harness 可能把工作区指令追加为另一条相邻 user 消息；适配器只在相邻 user 消息组含图片时合并该组，并保持片段顺序，不改变普通纯文本历史。适配器提供包持有的固定 catalog：29 个桌面聊天模型（`craft`/`ask`/`plan` 并集，取自一次桌面客户端缓存投影）；配置的 `models` 列表会替换它，这正是 Models 卡片编辑目录的方式（见[模型选择合并笔记](2026-08-16-tencent-model-selection-joins-cache-and-user-models.md)）。它通过公开的 profile 解析和请求准备 hook 复用 pi-ai。Models 引导协调器在 desktop 同时组合两条目标时先选择腾讯 CodeBuddy，未挂载腾讯时再回退到 DeepSeek；因此 desktop 组合优先显示腾讯 Key 输入框，同时保留两个模型 catalog，并通过现有凭据服务存储机密。
 
-**Loader 导入解析是逐实例的 Host hook，并由每棵 EntryTree 调用。** vendored Loader 公开 `resolveImport(specifier, parentURL, attributes)`；`EntryTree.import()` 会在私有适配器或原生 dynamic import 之前调用它。封闭运行时传入 `bareModuleBaseUrl` 时，app boot 会提供一个基于 `createRequire(installAnchor).resolve()` 的 resolver，把裸包名转换为绝对 file URL，同时保留相对配置的导入。client 模块发现会使用同一 hook 解析包元数据，而不是沿着可写 profile 的 symlink 进入 Electron 归档。受维护的 profile module fallback 仍是让这些包名可解析的已安装依赖闭包。桌面部署清单会显式提供该闭包中的每个必需 workspace peer，仓库运行时闭包门禁会审计两个可执行部署根。该机制覆盖嵌套树和运行时创建的树，并且在有无 Node 私有适配器时都能工作，包括可写 profile 位于应用目录之外的 Electron 归档。
+**Loader 导入解析是逐实例的 Host hook，并由每棵 EntryTree 调用。** vendored Loader 公开 `resolveImport(specifier, parentURL, attributes)`；`EntryTree.import()` 会在私有适配器或原生 dynamic import 之前调用它。封闭运行时传入 `bareModuleBaseUrl` 时，app boot 会提供一个基于 `createRequire(installAnchor).resolve()` 的 resolver，把裸包名转换为绝对 file URL，同时保留相对配置的导入。同一基准还会安装进程级 Node `registerHooks` 解析回退，使树外模块内部的嵌套 `import` 在 `$DSH_HOME/profiles/node_modules` 符号链接指向 `app.asar` 时仍能到达安装目录（[asar 嵌套 ESM 解析](../bug-fix/2026-08-21-asar-fallback-nested-esm-imports.md)）。client 模块发现使用 Loader hook 解析包元数据，而不是跟随这些可写 profile 符号链接。受维护的 profile module fallback 仍是源码启动和 CJS `createRequire` 用来解析这些包名的已安装依赖闭包。桌面部署清单会显式提供该闭包中的每个必需 workspace peer，仓库运行时闭包门禁会审计两个可执行部署根。该机制覆盖嵌套树和运行时创建的树，并且在有无 Node 私有适配器时都能工作，包括可写 profile 位于应用目录之外的 Electron 归档。
 
 **macOS 发行使用按架构分离的 ASAR DMG。** 一个打包入口会生成 `arm64` 与 `x64` DMG，并在每个文件名中标明架构；构建不会生成 Universal 应用。Electron Builder 会归档 JavaScript 与运行时资源，排除 TypeScript、source map 和包根目录的开发材料，并且只解包必须以普通文件存在的原生库与可执行文件。按架构过滤器只保留匹配的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 包。Developer ID 签名使用构建主机上的可用身份；对外分发要求同一产物完成 Apple 公证，而不是要求接收者关闭 Gatekeeper 隔离。
 
@@ -44,7 +44,7 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 ## 后果
 
-仓库可以启动并打包一个 Electron 应用，其默认路由是腾讯 CodeBuddy，同时 Models 页面保留官方 DeepSeek 路由及其模型 catalog。腾讯选择器会跟随本地 CodeBuddy 客户端中的桌面聊天模式；其设置卡片可以重新查询数据库，并选择 composer 列出哪些缓存 id。没有可用缓存时，腾讯适配器无法加载。配置的 `gpt-5.6-sol` 默认值可能不在账号缓存中，此时 composer 会保持不可用，直到用户选择一个已提供的模型。两条路由都不可用时，首次引导会先请求腾讯 Key，再回退到 DeepSeek。浏览器与桌面表层共享相同 client 包和 Host API；桌面特有行为只存在于一个 profile 层和一个启动器中。腾讯协议变化需要发布适配器更新，而不是要求用户重新配置。封闭运行时由 app boot 提供 resolver 时，无需 Cordis 的 Node 私有适配器即可导入裸插件；Loader vendor 日志会记录这项本地扩展。
+仓库可以启动并打包一个 Electron 应用，其默认路由是腾讯 CodeBuddy，同时 Models 页面保留官方 DeepSeek 路由及其模型 catalog。腾讯选择器会跟随本地 CodeBuddy 客户端中的桌面聊天模式；其设置卡片可以重新查询数据库，并选择 composer 列出哪些缓存 id。没有可用缓存时，腾讯适配器无法加载。配置的 `gpt-5.6-sol` 默认值可能不在账号缓存中，此时 composer 会保持不可用，直到用户选择一个已提供的模型。两条路由都不可用时，首次引导会先请求腾讯 Key，再回退到 DeepSeek。浏览器与桌面表层共享相同 client 包和 Host API；桌面特有行为只存在于一个 profile 层和一个启动器中。腾讯协议变化需要发布适配器更新，而不是要求用户重新配置。封闭运行时由 app boot 提供 resolver 时，无需 Cordis 的 Node 私有适配器即可导入裸插件，同一安装目录 require 还会应答这些插件内部的嵌套 ESM 导入；Loader vendor 日志会记录这项本地扩展。
 
 macOS 构建会分别生成 Apple 芯片与 Intel DMG。每个组装后的应用只包含一套 Electron 架构及其匹配的可选原生包；ASAR 解包目录只包含运行时必需的原生二进制，而不是完整依赖目录。Developer ID 签名和 Apple 公证没有同时成功时，产物只能用于本地测试。
 

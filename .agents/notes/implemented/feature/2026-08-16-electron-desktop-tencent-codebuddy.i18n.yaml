@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-16-electron-desktop-tencent-codebuddy.md
-2026-08-16-electron-desktop-tencent-codebuddy.md: f6234829db82089bac005f0603c4052b80aa425c
-2026-08-16-electron-desktop-tencent-codebuddy.zh.md: 65f615d686be82b220388ac992a09677dedaea15
+2026-08-16-electron-desktop-tencent-codebuddy.md: 223901cccce21b72e8c2050e9861825b63fcba7f
+2026-08-16-electron-desktop-tencent-codebuddy.zh.md: 8b4d26e9d25d2565c159822e78561616a487ccc5
