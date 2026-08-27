@@ -1,6 +1,7 @@
 /** Cross-platform native single-directory chooser behind the native backend's capability. */
 
 import { runNativeCommand, type NativeCommandRunner } from '@deepseek-ai/dsh-native-command'
+import { pickElectronDirectory } from './electron-dialog.ts'
 import { pickWin32Directory } from './win32-dialog.ts'
 
 /** Testable command boundary; native implementations never invoke a shell. */
@@ -12,6 +13,13 @@ export interface DirectoryPickerInternals {
   run?: DirectoryPickerRunner
   /** Replaces the in-process Win32 dialog (`pickWin32Directory`) for deterministic tests. */
   pickWin32Dialog?: (signal: AbortSignal) => Promise<string | null>
+  /**
+   * When true, Windows uses Electron's main-process chooser. Defaults to
+   * `process.versions.electron !== undefined` (the packaged desktop Host).
+   */
+  useElectronDialog?: boolean
+  /** Replaces {@link pickElectronDirectory} for deterministic tests. */
+  pickElectronDialog?: (signal: AbortSignal) => Promise<string | null>
 }
 
 function outputPath(stdout: string): string | null {
@@ -67,11 +75,18 @@ export async function pickNativeDirectory(
   }
 
   if (platform === 'win32') {
-    // The koffi-backed IFileOpenDialog child process — the modern picker with
-    // per-monitor-v2 DPI and abort support. koffi is a packaged dependency
-    // whose availability the install guarantees, so there is no fallback
-    // tier: any failure surfaces as-is (no PowerShell fallback tier; see
+    // Packaged Electron already owns a main-process directory chooser. The
+    // koffi child cannot load its native bindings once the worker entry is
+    // rewritten out of `app.asar` (see
+    // .agents/notes/implemented/bug-fix/2026-08-21-electron-win32-directory-dialog.md).
+    // Plain Node Windows keeps the koffi child as the only native tier
+    // (no PowerShell fallback; see
     // .agents/notes/implemented/simplification/2026-08-04-drop-windows-powershell-picker-fallback.md).
+    const useElectron = internals.useElectronDialog ?? process.versions.electron !== undefined
+    if (useElectron) {
+      const pickDialog = internals.pickElectronDialog ?? pickElectronDirectory
+      return await pickDialog(signal)
+    }
     const pickDialog = internals.pickWin32Dialog ?? pickWin32Directory
     return await pickDialog(signal)
   }

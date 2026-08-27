@@ -42,13 +42,14 @@ npx --yes pnpm@11.7.0 run desktop:package:mac:x64
 npx --yes pnpm@11.7.0 run desktop:package:dir
 ```
 
-在 Windows runner 上构建 Windows x64 NSIS 安装包；仅当所有原生依赖都提供 Windows x64 预构建产物时，才可从其他宿主交叉打包。仓库的 `supportedArchitectures` 设置会在普通 workspace 安装期间安装这些 Windows 可选包：
+在所有原生依赖都提供 Windows x64 预构建产物时，构建包含 `DeepSeek Harness.exe` 的 Windows x64 zip。NSIS 仍需要 Windows runner 或 Wine（`makensis`）。仓库的 `supportedArchitectures` 设置会在普通 workspace 安装期间安装这些 Windows 可选包：
 
 ```sh
-npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop exec electron-builder --win nsis --x64 --config.npmRebuild=false
+npx --yes pnpm@11.7.0 run desktop:package:win
+npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop run package:win:nsis
 ```
 
-根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/web/public/favicon.svg` 生成各平台的应用图标。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep 和 node-pty helper 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制，并排除仅适用于 Linux 的 Landlock 包。TypeScript 源码、类型声明、source map，以及包根目录的测试、文档和示例目录不会进入产物。
+根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/web/public/favicon.svg` 生成各平台的应用图标。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep、node-pty helper 和 Win32 文件夹对话框 worker 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制，并排除仅适用于 Linux 的 Landlock 包。TypeScript 源码、类型声明、source map，以及包根目录的测试、文档和示例目录不会进入产物。
 
 桌面包是可执行部署根：其生产依赖会显式提供交付 profile 可达的每个必需 workspace peer；其可选依赖显式提供 pnpm 11 不会为 Electron Builder 传递安装的目标平台 Sharp、Koffi、ripgrep 与 native-addon 二进制。`pnpm run verify-runtime-closure` 会在发布前检查 workspace 闭包；分发前还必须检查打包应用是否包含所选平台二进制。
 

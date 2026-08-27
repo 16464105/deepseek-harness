@@ -49,8 +49,8 @@ export function spawnDialogWorker(data: Win32DialogWorkerData): ReturnType<typeo
   const env = { ...process.env, DSH_DIALOG_TITLE: data.title, ELECTRON_RUN_AS_NODE: '1' }
   // stderr is piped so the driver can attach the child's real failure to
   // its error when the worker dies without an IPC message (the packaged
-  // desktop has no console to inherit into).
-  const stdio: StdioOptions = ['ignore', 'pipe', 'inherit', 'ipc']
+  // desktop has no console to inherit into). stdout is unused.
+  const stdio: StdioOptions = ['ignore', 'ignore', 'pipe', 'ipc']
   /* v8 ignore next 3 -- the built-output arm: tests always run unbuilt (src/) */
   if (!import.meta.url.endsWith('.ts')) {
     return spawn(process.execPath, [workerPath()], { env, stdio, windowsHide: true })

@@ -64,6 +64,38 @@ describe('native directory picker', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
+  it('uses Electron\'s directory chooser on the packaged desktop Host', async () => {
+    const run = vi.fn<DirectoryPickerRunner>()
+    const pickWin32Dialog = vi.fn(async (): Promise<string | null> => 'C:\\koffi')
+    const pickElectronDialog = vi.fn(async (): Promise<string | null> => 'C:\\electron')
+    await expect(pickNativeDirectory(signal(), {
+      platform: 'win32', run, pickWin32Dialog, pickElectronDialog, useElectronDialog: true,
+    })).resolves.toBe('C:\\electron')
+    expect(pickWin32Dialog).not.toHaveBeenCalled()
+    expect(run).not.toHaveBeenCalled()
+
+    pickElectronDialog.mockResolvedValueOnce(null)
+    await expect(pickNativeDirectory(signal(), {
+      platform: 'win32', run, pickWin32Dialog, pickElectronDialog, useElectronDialog: true,
+    })).resolves.toBeNull()
+  })
+
+  it('keeps the koffi child when Electron is not the Host', async () => {
+    const pickWin32Dialog = vi.fn(async (): Promise<string | null> => 'C:\\koffi')
+    const pickElectronDialog = vi.fn(async (): Promise<string | null> => 'C:\\electron')
+    await expect(pickNativeDirectory(signal(), {
+      platform: 'win32', pickWin32Dialog, pickElectronDialog, useElectronDialog: false,
+    })).resolves.toBe('C:\\koffi')
+    expect(pickElectronDialog).not.toHaveBeenCalled()
+  })
+
+  it('wires the real Electron chooser as the default when useElectronDialog is set', async () => {
+    const abort = new AbortController()
+    abort.abort()
+    await expect(pickNativeDirectory(abort.signal, { platform: 'win32', useElectronDialog: true }))
+      .rejects.toThrow('native directory picker aborted')
+  })
+
   it('surfaces the Win32 dialog failure with no fallback', async () => {
     const run = vi.fn<DirectoryPickerRunner>()
     await expect(pickNativeDirectory(signal(), { platform: 'win32', run, pickWin32Dialog: noDialog }))

@@ -150,6 +150,7 @@
     "desktop:package:mac": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac",
     "desktop:package:mac:arm64": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64",
     "desktop:package:mac:x64": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:mac:x64",
+    "desktop:package:win": "pnpm run build && pnpm --filter @deepseek-ai/dsh-desktop run package:win",
     "postinstall": "node scripts/install-lefthook.mjs"
   },
   "devDependencies": {
