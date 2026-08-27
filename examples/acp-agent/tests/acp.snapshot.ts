@@ -247,7 +247,8 @@ const SCENARIOS: Scenario[] = [
     configPath: IMAGE_TEXT_ROUTE_CONFIG,
   },
   // Authored keyless replay of the oversized-image refusal: admission rejects
-  // the 2001x1 fixture at the default 2000px per-side limit, the model sees a
+  // the 2001x16385 fixture at the default 16384px per-side limit (total
+  // decoded pixels stay far below maxImagePixels), the model sees a
   // recoverable tool error, and the turn still completes — the image never
   // enters durable history.
   {

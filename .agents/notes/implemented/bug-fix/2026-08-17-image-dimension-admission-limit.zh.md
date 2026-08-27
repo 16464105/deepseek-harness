@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-`ImageAttachmentLimits` 增加 `maxImageDimension`，在准入完整解码（`detectImage`）中以 `IMAGE_DIMENSION_TOO_LARGE` 强制执行，因此所有经附件服务提交的来源都会在任何内容进入持久历史之前拒绝超限图片。`LocalAttachmentStore` 将其暴露为 `maxImageDimension` 配置项，默认值 `DEFAULT_MAX_IMAGE_DIMENSION = 2000`，即已部署路由强制执行的最严格单边上限；路由更宽松的部署可在 cordis.yml 中调高。`read_image` 把 `IMAGE_DIMENSION_TOO_LARGE` 与 `IMAGE_TOO_MANY_PIXELS` 映射为面向模型的错误，指明解析后的路径与上限并提示缩图重试，本轮以可恢复的工具错误继续。Web 输入框对 `IMAGE_DIMENSION_TOO_LARGE` 给出指明上限的专用文案。`read-image-dimension` 快照场景通过组装后的应用无 key 回放这次拒绝：2001x1 的工作区 fixture、一条可恢复的工具错误、一个正常完成的轮次。
+`ImageAttachmentLimits` 增加 `maxImageDimension`，在准入完整解码（`detectImage`）中以 `IMAGE_DIMENSION_TOO_LARGE` 强制执行，因此所有经附件服务提交的来源都会在任何内容进入持久历史之前拒绝超限图片。`LocalAttachmentStore` 将其暴露为 `maxImageDimension` 配置项，默认值 `DEFAULT_MAX_IMAGE_DIMENSION = 16384`，是针对病态长宽比的安全上限，远高于真实截图；单张图片实际生效的硬限制是总解码像素（`maxImagePixels`）。不想要任何单边上限的部署可在 cordis.yml 中调高。`read_image` 把 `IMAGE_DIMENSION_TOO_LARGE` 与 `IMAGE_TOO_MANY_PIXELS` 映射为面向模型的错误，指明解析后的路径与上限并提示缩图重试，本轮以可恢复的工具错误继续。Web 输入框对 `IMAGE_DIMENSION_TOO_LARGE` 给出指明上限的专用文案。`read-image-dimension` 快照场景通过组装后的应用无 key 回放这次拒绝：2001x16385 的工作区 fixture（总像素远低于 `maxImagePixels`）、一条可恢复的工具错误、一个正常完成的轮次。
 
 ## Alternatives considered
 
@@ -26,5 +26,5 @@ Status: implemented
 ## Consequences
 
 - 一次超限的 `read_image` 不再能弄坏会话；模型看到可操作的错误，轮次正常完成。
-- 单边超过 2000px 的图片即使在其路由本可接受（小请求）的组合中也会被拒绝；这类部署必须显式调高 `maxImageDimension`。
+- 单边超过 16384px 的图片即使在其路由本可接受的组合中也会被拒绝；这类部署必须显式调高 `maxImageDimension`，总解码像素仍是实际生效的硬上限。
 - 已经携带超限图片的会话仍然是坏的；本次改动不修复既有历史。

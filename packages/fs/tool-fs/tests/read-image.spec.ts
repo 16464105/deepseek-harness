@@ -400,7 +400,7 @@ describe('image admission failures', () => {
     const ctx = await setup({ storeConfig: { maxImageDimension: 2 } })
     const result = await readImage(ctx, { file_path: 'wide.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
-    expect(text(result)).toContain('at least one image side exceeds the 2px limit')
+    expect(text(result)).toContain('at least one image side exceeds the 2px per-side limit')
     expect(text(result)).toContain('downscale the image and read the smaller copy')
   })
 

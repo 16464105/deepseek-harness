@@ -10,7 +10,7 @@ English | [中文](2026-08-17-image-dimension-admission-limit.zh.md)
 
 ## Decision
 
-`ImageAttachmentLimits` carries `maxImageDimension`, enforced during the admission full decode (`detectImage`) as `IMAGE_DIMENSION_TOO_LARGE`, so every producer that commits through the attachment service refuses an oversized image before anything reaches durable history. `LocalAttachmentStore` exposes it as the `maxImageDimension` config field with default `DEFAULT_MAX_IMAGE_DIMENSION = 2000`, the strictest per-side bound deployed routes enforce; deployments with laxer routes raise it from cordis.yml. `read_image` maps `IMAGE_DIMENSION_TOO_LARGE` and `IMAGE_TOO_MANY_PIXELS` to model-facing errors that name the resolved path and the limit and tell the model to downscale and retry — the turn continues as a recoverable tool error. The Web composer surfaces `IMAGE_DIMENSION_TOO_LARGE` with dedicated copy naming the limit. The `read-image-dimension` snapshot scenario replays the refusal keylessly through the assembled app: a 2001x1 workspace fixture, a recoverable tool error, and a completed turn.
+`ImageAttachmentLimits` carries `maxImageDimension`, enforced during the admission full decode (`detectImage`) as `IMAGE_DIMENSION_TOO_LARGE`, so every producer that commits through the attachment service refuses an oversized image before anything reaches durable history. `LocalAttachmentStore` exposes it as the `maxImageDimension` config field with default `DEFAULT_MAX_IMAGE_DIMENSION = 16384`, a sanity bound for pathological aspect ratios that sits far above real captures; the effective hard limit for one image is total decoded pixels (`maxImagePixels`). Deployments that want no per-side bound at all can raise it from cordis.yml. `read_image` maps `IMAGE_DIMENSION_TOO_LARGE` and `IMAGE_TOO_MANY_PIXELS` to model-facing errors that name the resolved path and the limit and tell the model to downscale and retry — the turn continues as a recoverable tool error. The Web composer surfaces `IMAGE_DIMENSION_TOO_LARGE` with dedicated copy naming the limit. The `read-image-dimension` snapshot scenario replays the refusal keylessly through the assembled app: a 2001x16385 workspace fixture (total pixels far below `maxImagePixels`), a recoverable tool error, and a completed turn.
 
 ## Alternatives considered
 
@@ -26,5 +26,5 @@ English | [中文](2026-08-17-image-dimension-admission-limit.zh.md)
 ## Consequences
 
 - One oversized `read_image` can no longer break a session; the model sees an actionable error and the turn completes.
-- Images with a side above 2000px are refused even in compositions whose routes would accept them on small requests; such deployments must raise `maxImageDimension` explicitly.
+- Images with a side above 16384px are refused even in compositions whose routes would accept them; such deployments must raise `maxImageDimension` explicitly, and total decoded pixels remains the effective hard bound.
 - Sessions that already carry an oversized image remain broken; this change does not repair existing history.

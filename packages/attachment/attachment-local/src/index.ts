@@ -19,13 +19,12 @@ export const DEFAULT_MAX_MESSAGE_IMAGE_BYTES = 100 * 1024 * 1024
 /** Default maximum intrinsic pixels for one image. */
 export const DEFAULT_MAX_IMAGE_PIXELS = 40_000_000
 /**
- * Default maximum intrinsic width and height for one image. Deployed model
- * routes reject any request whose history carries an image with a side above
- * 2000px once the request holds many images, and an admitted image rides
- * every later request of its session, so admission refuses at the same line
- * to keep the durable history streamable.
+ * Default maximum intrinsic width and height for one image. The hard admission
+ * bound is total decoded pixels (`DEFAULT_MAX_IMAGE_PIXELS`); this per-side
+ * default only keeps pathological extreme-aspect images out of the durable
+ * history, and deployments with laxer model routes may raise or remove it.
  */
-export const DEFAULT_MAX_IMAGE_DIMENSION = 2000
+export const DEFAULT_MAX_IMAGE_DIMENSION = 16_384
 
 /** Local attachment backend configuration. */
 export interface Config {

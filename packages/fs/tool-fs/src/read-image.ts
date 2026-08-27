@@ -195,7 +195,7 @@ export function applyReadImageTool(ctx: Context): void {
         // model request past provider-side dimension rejections.
         if (error.code === 'IMAGE_DIMENSION_TOO_LARGE') {
           throw new Error(
-            `cannot read "${target.displayPath}": at least one image side exceeds the ${attachments.imageLimits.maxImageDimension}px limit; downscale the image and read the smaller copy`,
+            `cannot read "${target.displayPath}": at least one image side exceeds the ${attachments.imageLimits.maxImageDimension}px per-side limit; downscale the image and read the smaller copy`,
             { cause: error },
           )
         }
