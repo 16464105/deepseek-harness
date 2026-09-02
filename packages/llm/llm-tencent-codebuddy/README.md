@@ -1,10 +1,28 @@
+---
+description: "Tencent internal CodeBuddy adapter for the Harness LLM seam: the fixed tencent-internal route and package-owned model catalog."
+kind: "package-reference"
+---
+
 # `@deepseek-ai/dsh-llm-tencent-codebuddy`
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Tencent internal CodeBuddy adapter for the Harness LLM seam. The package exposes one fixed route, `tencent-internal`, backed by pi-ai's OpenAI Chat Completions transport, a package-owned fixed model catalog, and the request normalization used by that integration. Deployment configuration contains a credential reference, an optional model-catalog override, timeouts, and retry policy; callers cannot redirect the trusted key to another endpoint through settings.
 
 The package root exposes the Cordis plugin contract, the fixed provider/default-model/credential constants, the fixed catalog, and the request-header and payload-normalization helpers used by focused protocol tests.
+
+## Table of Contents
+
+- [Fixed provider facts](#fixed-provider-facts)
+- [Model catalog](#model-catalog)
+- [Config](#config)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
 
 ## Fixed provider facts
 
@@ -54,6 +72,13 @@ Every request carries the CodeBuddy CLI route and IDE headers, the fixed CLI `Us
 Before transport, the adapter merges `system` and `developer` messages into one leading system message; supplies a neutral system message when none exists; inserts a user `Hello` when the first conversation message is not from a user; removes `cache_control` recursively; requires streaming and usage; maps `max_completion_tokens` to `max_tokens`; enforces CodeBuddy's 100-token minimum output value; and normalizes Tencent tool-choice forms. Tencent evaluates image input only from its current user message, while Harness can append workspace context as a second adjacent user message. The adapter therefore merges an adjacent user-message run only when that run contains an image, preserving content-part order; text-only runs and user messages separated by assistant or tool history remain distinct. A named tool choice narrows to exactly one matching declaration and fails before network I/O when absent or ambiguous.
 
 Transport and stream conversion remain owned by [`dsh-llm-pi-ai`](../llm-pi-ai/README.md). Its public `resolveProfiles` and `prepareRequest` hooks let this package reuse credential, attachment, replay, timeout, and streaming behavior while retaining provider facts and protocol normalization here.
+
+-----
+
+<a id="dev-note"></a>
+## Dev Note
+
+The adapter is desktop-deployment-specific: the Tencent CodeBuddy endpoint and normalization live here rather than in `llm-pi-ai`, and the desktop profile selects its default model. The route is fixed and cannot be redirected through settings.
 
 ## Model Experience
 

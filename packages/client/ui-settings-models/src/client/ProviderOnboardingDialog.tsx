@@ -1,12 +1,19 @@
-/** First-run key entry for the deployment's preferred supported provider. */
+/**
+ * First-run key entry for the deployment's preferred supported provider.
+ * Readiness comes from the same provider/settings/credential join as the
+ * Models page: any provider the user can already talk to ends the step, and
+ * only a user with none is offered the preferred route. The step reuses that
+ * page's credential editor in the onboarding plugin's shared modal, so the
+ * key is entered once.
+ */
 
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import type { IApiClient } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelsSettingsState, ModelsSettingsStore } from './store.ts'
 import { onboardingReadiness } from './store.ts'
+import type { ModelsOperations } from './operations.ts'
 import type { SettingsSchemaOperations } from './schema-operations.ts'
 import { ProviderEditor } from './ProviderEditor.tsx'
 import type { en } from './locales.ts'
@@ -21,8 +28,8 @@ export interface ProviderOnboardingInjected {
   }
   /** Shared Models-page join controller. */
   controller: ModelsSettingsStore
-  /** Existing wire face reused by the Models credential editor. */
-  api: Pick<IApiClient, 'settings' | 'credentials' | 'llm'>
+  /** The Host operations the reused Models credential editor writes through. */
+  operations: ModelsOperations
   /** Settings schema and immutable path callbacks. */
   schema: SettingsSchemaOperations
   /** Feature copy. */
@@ -55,7 +62,7 @@ function providerCopy(provider: string): {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function ProviderOnboardingDialog(props: ProviderOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, api, schema, t } = props
+  const { complete, controller, useModels, operations, schema, t } = props
   const state = useModels(snapshot => snapshot)
   const readiness = onboardingReadiness(state)
 
@@ -112,16 +119,16 @@ export function ProviderOnboardingDialog(props: ProviderOnboardingDialogProps): 
           namespace={namespace}
           schema={schema}
           settingsPath={row.entry.settingsPath}
-          api={api}
+          operations={operations}
           t={t}
           readOnly={false}
           hideTitle
           credentialOnly
           credentialRequired
           autoFocusCredential
-          cancelLabel="onboardingLater"
-          submitLabel="onboardingSave"
-          submitBusyLabel="onboardingSaving"
+          cancelLabelKey="onboardingLater"
+          submitLabelKey="onboardingSave"
+          submitBusyLabelKey="onboardingSaving"
           onClose={finishCredential}
         />
       </div>

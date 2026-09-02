@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 
 /** Poll interval for the live screenshot, in milliseconds. */
 export const REFRESH_MS = 1500

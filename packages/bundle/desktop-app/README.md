@@ -1,30 +1,50 @@
+---
+description: "Desktop profile patch layer over dsh-base + dsh-web-app for the Electron application."
+kind: "package-bundle"
+---
+
 # `@deepseek-ai/dsh-desktop-app`
 
 English | [中文](README.zh.md)
+
+## Summary
 
 Desktop profile patch layer applied after [`dsh-base`](../base/README.md) and [`dsh-web-app`](../web-app/README.md). It retains the existing Host and browser client composition for Electron, binds the Web server to an ephemeral loopback port, suppresses the printed URL and Web-surface prompt context, disables client HMR, keeps the direct DeepSeek adapter, mounts [`dsh-llm-tencent-codebuddy`](../../llm/llm-tencent-codebuddy/README.md), and selects `tencent-internal/gpt-5.6-sol` as the default model.
 
 The Electron main process, not this bundle, owns the native window, single-instance behavior, the desktop Harness home, and process shutdown. This package carries only a patch list plus the required package invariant companion.
 
-The Tencent adapter resolves its selectable models from the local CodeBuddy client's desktop-chat cache. Its settings card can reread the cache and filter the shared chat selector. The bundle's configured `gpt-5.6-sol` default does not add an unavailable model to that list; users whose cache omits it choose one of the listed Tencent models.
+## Table of Contents
+
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="model-experience"></a>
+-----
+
+<a id="dev-note"></a>
+## Dev Note
+
+This package is a pure patch carrier: no runtime code ships from `src`, and its invariant companion checks the composed profile wiring.
 
 ## Model Experience
 
-### Desktop composition
+### Default model selection
 
 #### What the model sees
 
-The bundle selects Tencent CodeBuddy as the default provider and removes the Web-only `harness:source` and `app:web-surface` context contributed by `web-runtime`. All other model-visible content comes from `dsh-base`, the selected agent preset, and the mounted DeepSeek and Tencent adapters.
+The default model route resolves to `tencent-internal/gpt-5.6-sol`; nothing else in the prompt or tool surface changes versus the web profile. The model sees the same prompt composition the web profile ships; only the default route differs.
 
 #### Token effect
 
-The bundle adds no prompt text. Disabling Web-surface context removes its source line, surface paragraph, and managed `DSH_WEB_URL` description from desktop sessions.
+No token change from this layer: the model-catalog default swap adds nothing to any request.
 
 #### KV Cache effect
 
-The selected provider and model determine the cache domain. The bundle itself adds no changing request prefix.
+None. The default selection is a deployment fact, not a session-log value.
 
 ## Known Limitations and Deferred Work
 
-- **This layer assumes `base + web-app` below it** — its id-targeted patches fail to provide a complete application when mounted by itself.
-- **The default provider and model are intentionally fixed** — the adapter may exclude that model from an account's cache-backed catalog, while endpoint, protocol, and catalog resolution belong in the adapter rather than user patch defaults.
+- **Composition-only layer** — the desktop patch is a composition fact; the Electron main process owns all native-window behavior and is documented by `apps/desktop`.

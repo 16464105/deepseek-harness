@@ -60,6 +60,8 @@ export async function pickElectronDirectory(
     title: DIALOG_TITLE,
     properties: ['openDirectory', 'createDirectory'],
   })
+  // A dialog await is a suspension point: the caller may abort while it is open.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- aborted is mutable across the await.
   if (signal.aborted) throw new Error('native directory picker aborted')
   if (result.canceled) return null
   return result.filePaths[0] ?? null

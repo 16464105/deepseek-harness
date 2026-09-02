@@ -14,7 +14,7 @@ The client emits `mcp/status` for transport phases and discovered tool counts. T
 
 ## Cordis API
 
-Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
 <a id="ctxmcpmanager--mcpmanager"></a>
 
@@ -23,15 +23,23 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 Host service that persists definitions and mounts one mcp-client fiber per enabled server.
 
 ```ts cordis-catalog
+/**
+ * Materialize the absent `mcp.json` and return its path for the open action.
+ * @returns the absolute document path after materialization.
+ */
+@Remote('openDocument') async openDocument(): Promise<string>
+
+/**
+ * Open the managed `mcp.json` in a native text editor (client-side action).
+ * @param signal - caller lifetime; abort terminates the native command.
+ * @returns whether the native opener accepted the path, plus the path for text display.
+ */
+@Remote('open') async open(signal: AbortSignal): Promise<{ opened: boolean; path: string }>
+
 /** Return every managed server without environment variables or HTTP headers.
  * @returns The current writable state, the host-resolved `mcp.json` path, and the secret-redacted server directory.
  */
 @Remote('list') async list(): Promise<McpServerSnapshot>
-
-/** Materialize the absent `mcp.json` and return its path for the open action.
- * @returns The host-resolved document path, ready for a native opener.
- */
-@Remote('openDocument') async openDocument(): Promise<string>
 
 /** Create or replace one server definition, retaining omitted secrets on edits.
  * @param draft - The validated server definition and optional write-only secrets.
@@ -59,7 +67,7 @@ Host service that persists definitions and mounts one mcp-client fiber per enabl
 @Remote('restart') async restart(serverName: string): Promise<McpServerSnapshot>
 ```
 
-Source: [`packages/mcp/mcp-manager/src/index.ts:114`](../../packages/mcp/mcp-manager/src/index.ts)
+Source: [`packages/mcp/mcp-manager/src/index.ts`](../../packages/mcp/mcp-manager/src/index.ts)
 
 <a id="mcp-events"></a>
 
@@ -80,5 +88,5 @@ Publish a configured server's transport phase and discovered tool count to manag
 'mcp/status'(status: McpConnectionStatus): void
 ```
 
-Source: [`packages/mcp/mcp-client/src/index.ts:41`](../../packages/mcp/mcp-client/src/index.ts)
+Source: [`packages/mcp/mcp-client/src/index.ts`](../../packages/mcp/mcp-client/src/index.ts)
 <!-- END GENERATED cordis-surface -->

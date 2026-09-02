@@ -1,30 +1,51 @@
+---
+description: "Electron 应用程序的桌面 profile 补丁层，叠加于 dsh-base 与 dsh-web-app 之上。"
+kind: "package-bundle"
+---
+
 # `@deepseek-ai/dsh-desktop-app`
 
 [English](README.md) | 中文
 
-应用在 [`dsh-base`](../base/README.md) 与 [`dsh-web-app`](../web-app/README.md) 之后的桌面 profile patch 层。它为 Electron 保留既有 Host 和浏览器 client 组合，将 Web 服务器绑定到临时回环端口，关闭 URL 输出与 Web 表层提示词上下文，禁用 client HMR、保留直接 DeepSeek 适配器，挂载 [`dsh-llm-tencent-codebuddy`](../../llm/llm-tencent-codebuddy/README.md)，并选择 `tencent-internal/gpt-5.6-sol` 作为默认模型。
+## 概述
 
-原生窗口、单实例行为、桌面 Harness home 和进程关闭由 Electron 主进程负责，而不是本组合包。本包只携带 patch 列表和所需的包级 invariant companion。
+应用于 [`dsh-base`](../base/README.zh.md) 与 [`dsh-web-app`](../web-app/README.zh.md) 之后的桌面 profile 补丁层。它为 Electron 保留现有 Host 与浏览器客户端组合,将 Web 服务器绑定到临时回环端口,抑制打印 URL 与 Web 面提示上下文,禁用客户端 HMR,保留直连 DeepSeek 适配器,挂载 [`dsh-llm-tencent-codebuddy`](../../llm/llm-tencent-codebuddy/README.zh.md),并选择 `tencent-internal/gpt-5.6-sol` 作为默认模型。
 
-腾讯适配器从本地 CodeBuddy 客户端的桌面聊天缓存解析可选模型，其设置卡片可以重新读取缓存，并过滤共享聊天选择器。组合包配置的 `gpt-5.6-sol` 默认值不会把不可用模型加入该列表；缓存未包含它的用户需要选择一个已列出的腾讯模型。
+Electron 主进程(而非本 bundle)拥有原生窗口、单实例行为、桌面 Harness home 与进程关闭。本包仅携带补丁列表与必需的包不变式伴生文件。
+
+## 目录
+
+- [模型体验](#model-experience)
+- [已知限制与待办](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="model-experience"></a>
+-----
+
+<a id="dev-note"></a>
+## 开发备注
+
+本包是纯补丁载体:`src` 不发布任何运行时代码,其不变式伴生文件检查组合后的 profile 装配。
 
 ## 模型体验
 
-### 桌面组合
+### 默认模型选择
 
-#### 模型看到的内容
+#### 模型看到什么
 
-本组合包选择腾讯 CodeBuddy 作为默认提供方，并移除 `web-runtime` 注入的 Web 专用 `harness:source` 与 `app:web-surface` 上下文。其他所有模型可见内容来自 `dsh-base`、选中的 agent preset，以及已挂载的 DeepSeek 与腾讯适配器。
+默认模型路由解析为 `tencent-internal/gpt-5.6-sol`;提示或工具面相比 Web profile 无其他变化。模型看到的提示组合与 Web profile 相同;只有默认路由不同。
 
 #### Token 影响
 
-本组合包不添加提示词文本。关闭 Web 表层上下文会从桌面会话中移除其源码说明行、表层说明段落和受管 `DSH_WEB_URL` 描述。
+本层无 token 变化:模型目录默认值替换不会向任何请求添加内容。
 
-#### KV Cache 影响
+#### KV 缓存影响
 
-选中的提供方和模型决定缓存域。本组合包不会添加会变化的请求前缀。
+无。默认选择是部署事实,不是会话日志值。
 
-## 已知限制与延后工作
+<a id="known-limitations-and-deferred-work"></a>
+## 已知限制与待办
 
-- **该层假定下方已经应用 `base + web-app`**：单独挂载时，其按 id 定位的 patch 无法组成完整应用。
-- **默认提供方和模型有意固定**：适配器可以从账号的缓存 catalog 中排除该模型；端点、协议和 catalog 解析应由适配器持有，而不是写进用户 patch 默认值。
+- **纯组合层** — 桌面补丁是组合事实;Electron 主进程拥有全部原生窗口行为,由 `apps/desktop` 文档化。

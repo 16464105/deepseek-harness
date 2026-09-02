@@ -1,11 +1,27 @@
+---
+description: "面向模型的浏览器操作工具：通过 Playwright 驱动一个持久本地 Chromium。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-browser
 
 [English](README.md) | 中文
 
-面向模型的浏览器操作工具,通过 [Playwright](https://playwright.dev) 驱动一个持久化的本地 Chromium。本包拥有完整工具集——`browser_navigate`、`browser_click`、`browser_type`、`browser_press_key`、`browser_snapshot`、`browser_screenshot`——以及其 schema、固定的模型面文案、`aria-ref` 交互约定、引擎选择与依赖 attachment 的截图路径。Playwright 会话位于私有 `BrowserController` 服务之后;没有其他包读取它,因此该能力以单插件形式交付而不暴露公开 seam([决策](../../../.agents/notes/implemented/feature/2026-08-16-browser-tools.md))。
+## 概述
+
+面向模型的浏览器操作工具,通过 [Playwright](https://playwright.dev) 驱动一个持久化的本地 Chromium。本包拥有完整工具集——`browser_navigate`、`browser_click`、`browser_type`、`browser_press_key`、`browser_snapshot`、`browser_screenshot`——以及其 schema、固定的模型面文案、`aria-ref` 交互约定、引擎选择与依赖 attachment 的截图路径。Playwright 会话位于私有 `BrowserController` 服务之后;没有其他包读取它,因此该能力以单插件形式交付而不暴露公开 seam([决策](../../../.agents/notes/implemented/feature/2026-08-16-browser-tools.zh.md))。
 
 工具遵循 Playwright `mode: 'ai'` 可访问性快照循环:`browser_snapshot` 返回页面的 aria 快照 YAML 与 `[ref=eN]` 标记,`browser_click`/`browser_type` 通过这些 ref 定位元素。快照中不存在的 ref 会在任何浏览器交互前被拒绝,因此过期引用会以模型可读的错误失败,而不是点错元素。
 
+## 目录
+
+- [工具](#tools)
+- [模型体验](#model-experience)
+- [开发备注](#dev-note)
+
+-----
+
+<a id="tools"></a>
 ## 工具
 
 | 工具 | 参数 | 行为 |
@@ -19,6 +35,7 @@
 
 除 `browser_snapshot` 外的所有工具都声明 `isConcurrencySafe: () => false`:它们修改同一个共享页面,因此兄弟工具调用不会交错。`browser_screenshot` 仅在挂载了持久 attachment 存储(`ctx.attachments`)时注册,因为其图像块必须引用已提交的 attachment;execute 主体对直接调用者保留同样检查。
 
+<a id="config"></a>
 ## 配置
 
 | 键 | 默认 | 含义 |
@@ -34,14 +51,26 @@
 
 浏览器进程在首次使用时启动,而非插件加载时;卸载插件会关闭浏览器、上下文与页面,因此重载不会遗留孤儿进程。缺失二进制以结构化 `NO_BROWSER` 失败呈现,并给出可操作的提示(`chrome` 引擎会指明 `chromium` 回退方案)。
 
+<a id="engine-and-browser-installation"></a>
 ## 引擎与浏览器安装
 
 Playwright 1.61.1 是直接依赖。保持默认 `chromium` 引擎的部署需一次性安装浏览器二进制(`pnpm exec playwright install chromium`,Linux 上加 `--with-deps`);否则 Playwright 在首次使用时报告缺失可执行文件,并翻译为 `NO_BROWSER` 错误。`chrome` 引擎在宿主机已有 Chrome/Chromium 安装时无需下载。
 
+<a id="error-taxonomy"></a>
 ## 错误分类
 
 所有浏览器失败都以 `BrowserError` 进入工具管道——封闭代码集为 `NO_BROWSER`(引擎无法启动)、`NO_PAGE`(页面关闭或崩溃)、`STALE_REF`(定位器不匹配)、`BAD_TARGET`(非 http(s) 或带凭据的 URL)、`BROWSER_FAILURE`(其他)。注册表在结构化错误元数据中暴露该代码,因此策略与 hooks 无需解析模型可见文本即可路由。
 
+-----
+
+<a id="dev-note"></a>
+## 开发备注
+
+Playwright 会话位于私有 `BrowserController` 服务之后;没有其他包读取它,因此该能力作为一个插件发布而无公开接缝。引擎选择(`chromium` 与 `chrome`)与无头模式是配置字段;Playwright Chromium 安装是开发与 CI 前提,本包绝不在运行时下载浏览器。
+
+-----
+
+<a id="model-experience"></a>
 ## Model Experience
 
 ### System prompt
@@ -68,7 +97,7 @@ The browser tools drive one persistent Chromium page. Use browser_navigate to op
 
 #### What the model sees
 
-生成的[工具目录](../../../docs/tool-catalog.md#deepseek-aidsh-browser)列出全部六个 schema。引擎选择不会改变它们;仅当未挂载 attachment 存储时缺少 `browser_screenshot`。
+生成的[工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-browser)列出全部六个 schema。引擎选择不会改变它们;仅当未挂载 attachment 存储时缺少 `browser_screenshot`。
 
 #### Token effect
 
@@ -120,6 +149,7 @@ The browser tools drive one persistent Chromium page. Use browser_navigate to op
 
 仅追加;新可见内容跟随可复用的请求前缀。
 
+<a id="known-limitations-and-deferred-work"></a>
 ## Known Limitations and Deferred Work
 
 - **浏览器范围的导航策略待定** — `browser_navigate` 接受模型提供的任何 http(s) URL;本包不定义域名允许/拒绝策略,需要该策略的部署应添加 `tools/pre-execute` guard。本包的 URL 校验仅覆盖协议与内嵌凭据。

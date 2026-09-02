@@ -1,8 +1,25 @@
+---
+description: "Persistent MCP server management for a Host application: a standard MCP JSON document and a secret-redacted Remote directory."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-mcp-manager
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Persistent MCP server management for a Host application. The plugin owns a standard MCP JSON document, exposes a secret-redacted Remote directory, and mounts one [`@deepseek-ai/dsh-mcp-client`](../mcp-client/README.md) fiber for each enabled server.
+
+## Table of Contents
+
+- [Configuration](#configuration)
+- [Runtime](#runtime)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
 
 ## Configuration
 
@@ -34,6 +51,13 @@ Each entry names either a `url` (streamable HTTP) or a `command` (stdio); `heade
 Saving, enabling, disabling, removing, or restarting a server reconciles live fibers without restarting the Host. The manager reports `connecting`, `connected`, `reconnecting`, `failed`, and `disabled` from the MCP client's status event and includes the discovered tool count. A failed connection does not make the plugin itself appear connected; the server row remains available for retry or editing.
 
 The Remote write methods reject unknown server names and restart requests for disabled servers. Disposing the manager waits for queued reconciliation and releases every child MCP fiber.
+
+-----
+
+<a id="dev-note"></a>
+## Dev Note
+
+The document lives at `<harness home>/mcp.json`; the manager materializes it on first open, and writes are serialized and atomic. Each enabled server mounts one `mcp-client` fiber; disabling removes the fiber and its server definition.
 
 ## Model Experience
 

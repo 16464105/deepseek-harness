@@ -1,7 +1,8 @@
 /** State owner for the "open skills directory" action on the Skills settings page. */
 
-import type { IApiClient, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
 /** Browser state of the Host-owned user skills directory. */
 export interface SkillsDirectoryState {
@@ -31,9 +32,9 @@ export class SkillsDirectoryStore {
   private generation = 0
 
   /**
-   * @param api - the skills wire face that reports and opens the directory.
+   * @param skills - the skills wire face that reports and opens the directory.
    */
-  constructor(private readonly api: Pick<IApiClient, 'skills' | 'host'>) {}
+  constructor(private readonly skills: Pick<TypertClientRemote['skills'], 'list' | 'openDirectory'>) {}
 
   /**
    * Read the current directory facts from the host. Requires a session so the
@@ -48,7 +49,7 @@ export class SkillsDirectoryStore {
       state.error = null
     })
     try {
-      const { result } = await this.api.skills.list({ sessionId })
+      const result = await this.skills.list({ sessionId })
       if (generation !== this.generation) return
       if (!result.ok) {
         this.store.update((state) => {
@@ -84,8 +85,8 @@ export class SkillsDirectoryStore {
       state.error = null
     })
     try {
-      const response = await this.api.host.openPath({ path: current.path ?? '' })
-      if (!response.result.ok) throw new Error(response.result.error.message)
+      const result = await this.skills.openDirectory()
+      if (!result.ok) throw new Error(result.error.message)
     } catch (error) {
       this.store.update((state) => { state.error = messageOf(error) })
     } finally {

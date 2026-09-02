@@ -2,15 +2,18 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import { SkillSettingsSection } from '../src/client/SkillSettingsSection.tsx'
+import { SkillSettingsSection, type SkillSettingsProps } from '../src/client/SkillSettingsSection.tsx'
 import { zh, type SkillKey } from '../src/client/locales.ts'
 import { SkillVisibility } from '../src/client/visibility.ts'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 
 const SESSION_ID = 'skill-settings-session' as SessionId
 const unusedHook = (() => { throw new Error('unused by Skill settings') }) as never
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook }
+type AttentionSnapshot = Parameters<Parameters<SkillSettingsProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: SkillSettingsProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction }
 const SKILLS: SkillEntry[] = [
   {
     name: 'project-review',

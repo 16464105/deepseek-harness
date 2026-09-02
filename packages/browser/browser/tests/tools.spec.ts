@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { Page } from 'playwright'
-import { CallId } from '@deepseek-ai/dsh-llm'
+import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { BrowserController, BrowserError, translateLaunchError, validateTarget } from '@deepseek-ai/dsh-browser'
@@ -79,7 +79,7 @@ async function mountController(): Promise<{ ctx: Context; controller: BrowserCon
 const toolSignal = new AbortController().signal
 let callCounter = 0
 function callTool(ctx: Context, name: string, args: unknown) {
-  return ctx.tools.execute({ signal: toolSignal, callId: CallId(`call-${++callCounter}`), name, arguments: args })
+  return ctx.tools.execute({ signal: toolSignal, callId: ToolCallId(`call-${++callCounter}`), name, arguments: args })
 }
 
 describe('validateTarget', () => {

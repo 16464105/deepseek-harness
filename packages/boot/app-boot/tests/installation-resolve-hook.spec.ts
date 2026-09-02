@@ -65,7 +65,7 @@ function stageIsolatedPeer(): { installAnchor: string; pluginUrl: string; marker
   }
 }
 
-describe.sequential('installInstallationResolveHook', () => {
+describe('installInstallationResolveHook', { concurrent: false }, () => {
   it('leaves an installation-only peer unresolved until the hook is installed', async () => {
     const staged = stageIsolatedPeer()
     const notFound = Object.assign(new Error('missing'), { code: 'ERR_MODULE_NOT_FOUND' })
@@ -100,7 +100,11 @@ describe.sequential('installInstallationResolveHook', () => {
     expect(resolved).toEqual({ url: 'file:///native-win' })
     expect(installationResolve(staged.marker, undefined, () => {
       throw native
-    })).toMatchObject({ url: expect.stringContaining(staged.marker), shortCircuit: true })
+    })).toMatchObject({
+      // oxlint-disable-next-line typescript/no-unsafe-assignment -- partial-match expectation for a resolved file URL.
+      url: expect.stringContaining(staged.marker),
+      shortCircuit: true,
+    })
   })
 
   it('does not retry relative, absolute, scheme, or non-not-found failures', () => {
@@ -114,14 +118,14 @@ describe.sequential('installInstallationResolveHook', () => {
     expect(() => installationResolve(staged.marker, undefined, () => { throw other })).toThrow(other)
     expect(() => installationResolve(staged.marker, undefined, () => { throw 'string-error' })).toThrow('string-error')
     try {
-      installationResolve(staged.marker, undefined, () => { throw null })
+      void installationResolve(staged.marker, undefined, () => { throw null })
       expect.unreachable('null error')
     } catch (error) {
       expect(error).toBeNull()
     }
     const opaque = { foo: 1 }
     try {
-      installationResolve(staged.marker, undefined, () => { throw opaque })
+      void installationResolve(staged.marker, undefined, () => { throw opaque })
       expect.unreachable('opaque error')
     } catch (error) {
       expect(error).toBe(opaque)
@@ -129,7 +133,11 @@ describe.sequential('installInstallationResolveHook', () => {
     expect(() => installationResolve('dsh-install-hook-absent-package', undefined, () => { throw notFound })).toThrow(notFound)
     const cjsMiss = Object.assign(new Error('cjs'), { code: 'MODULE_NOT_FOUND' })
     expect(installationResolve(staged.marker, undefined, () => { throw cjsMiss }))
-      .toMatchObject({ url: expect.stringContaining(staged.marker), shortCircuit: true })
+      .toMatchObject({
+        // oxlint-disable-next-line typescript/no-unsafe-assignment -- partial-match expectation for a resolved file URL.
+        url: expect.stringContaining(staged.marker),
+        shortCircuit: true,
+      })
   })
 
   it('retries after a rejected nextResolve promise', async () => {
@@ -139,6 +147,6 @@ describe.sequential('installInstallationResolveHook', () => {
     await expect(installationResolve('file:///ok', undefined, async () => ({ url: 'file:///ok' })))
       .resolves.toEqual({ url: 'file:///ok' })
     await expect(installationResolve(staged.marker, undefined, async () => { throw notFound }))
-      .resolves.toMatchObject({ url: expect.stringContaining(staged.marker), shortCircuit: true })
+      .resolves.toMatchObject({ url: expect.stringContaining(staged.marker) as unknown as string, shortCircuit: true })
   })
 })

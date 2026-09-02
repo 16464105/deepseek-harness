@@ -7,13 +7,14 @@
  */
 
 import { createElement, useEffect, useState } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-browser-popup/remote'
 // Type-only: pulls the ui-layout SlotMap merge that declares `shell.overlay`
 // and the ui-conversation merge that declares `conversation.session.header.actions`.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { BrowserPopup } from './BrowserPopup.tsx'
 import { BrowserPopupAction, isPopupVisible, setPopupVisible, subscribePopup } from './BrowserPopupAction.tsx'
 

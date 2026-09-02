@@ -1,11 +1,29 @@
+---
+description: "Live browser preview overlay for the DSH web client: shows the model-driven Playwright page in a floating top-right popup."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-browser-popup
 
 English | [中文](README.zh.md)
+
+## Summary
 
 Live browser preview overlay for the DSH web client: shows the model-driven Playwright page in a floating top-right popup, refreshed every 1.5 seconds. The Host half exposes a Remote service (`browserPopup`) with `shot` (binary-safe base64 screenshot), `pageInfo` (url/title), and `navigate`; the Client half occupies the `shell.overlay` slot and renders the screenshot on a canvas at native resolution (CSS scales for display).
 
 The overlay is additive: it contributes one entry to the frame-wide `shell.overlay` list slot, never replaces shell chrome, and is click-through until expanded. It ships beside the `browser` tool suite (same `browser` service dependency) and only makes sense where the browser is enabled.
 
+## Table of Contents
+
+- [Remote surface](#remote-surface)
+- [Client overlay](#client-overlay)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="remote-surface"></a>
 ## Remote surface
 
 | Method | Returns | Behavior |
@@ -16,29 +34,38 @@ The overlay is additive: it contributes one entry to the frame-wide `shell.overl
 
 Every method resolves the browser service lazily and returns `{ ok: false, error }` when the browser is unavailable, so the overlay degrades to an error string instead of failing the Remote call.
 
+<a id="client-overlay"></a>
 ## Client overlay
 
-The occupant (`browser-popup` in `shell.overlay`) polls `remote.browserPopup.shot()` while expanded:
+The Client half registers one occupant of the `shell.overlay` slot. The session-header toggle shows or hides it; the close button hides it entirely, so nothing renders until the header action is clicked. Screenshots render on a canvas at native resolution, CSS-scaled for display.
 
-- Collapsed state is a small pill in the top-right corner (click to expand).
-- Expanded state shows the live canvas (native resolution, CSS-scaled to fit), the page title, and the current URL.
-- `⟳` forces a refresh; `⛶`/`⤡` toggles near-fullscreen (92vw × 90vh); `✕` collapses back to the pill.
-- Errors (decode failure, Remote failure, browser unavailable) render in the footer, never over the canvas.
+<a id="model-experience"></a>
+-----
 
-## Composition
+<a id="dev-note"></a>
+## Dev Note
 
-```yaml
-# web-app bundle: enable the browser suite and add the overlay beside it.
-- id: browser
-  disabled: false
-- insert:
-    - id: browser-popup
-      name: '@deepseek-ai/dsh-browser-popup'
-```
+The overlay depends on the `browser` service being mounted and a Playwright Chromium install being present; without either it renders its error state instead of failing the Remote call.
 
-The package is dual-face: the node half is the `browserPopup` Remote service (typert-generated `./remote` client), the browser half is the `shell.overlay` occupant. Both halves require the `browser` service from `@deepseek-ai/dsh-browser`, so the bundle rows above assume the browser tool suite is enabled.
+<a id="known-limitations-and-deferred-work"></a>
 
-## Known limitations
+## Model Experience
 
-- The screenshot rides the typert Remote channel as base64; a large viewport yields a multi-hundred-KB message per poll. The 1.5s interval keeps the pipeline light at 1280×720 (~150 KB), but deployments with very large windows may prefer a longer `REFRESH_MS`.
-- The overlay is display-only: interacting with the driven page still goes through the agent's `browser_*` tools, not through the popup.
+### The preview overlay
+
+#### What the model sees
+
+The overlay is presentation-only: it never contributes tokens to a model request, never appears in the session log, and does not alter the model-visible tool surface. It renders the same Playwright page the `browser_*` tools drive, refreshed on a fixed interval, so a human watches the model's navigation without any change to the conversation transcript.
+
+#### Token effect
+
+Zero tokens. The overlay adds no prompt content, tool schemas, or event log rows.
+
+#### KV Cache effect
+
+None. The overlay holds no model-visible state and writes nothing the cache reads.
+
+## Known Limitations and Deferred Work
+
+- **Fixed refresh interval** — the overlay re-screenshots on a fixed 1.5s cadence; live video-like streaming and per-frame diffs are out of scope.
+- **Single browser page** — the overlay shows the one persistent Playwright page the browser tool suite drives; multiple pages or tabs are not previewed.

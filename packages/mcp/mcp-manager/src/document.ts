@@ -175,7 +175,11 @@ function renderEntry(server: ManagedServer): Record<string, unknown> {
   }
 }
 
-/** Render the managed servers as the standard JSON document text. */
+/**
+ * Render the managed servers as the standard JSON document text.
+ * @param servers - the managed server definitions, keyed by server name.
+ * @returns the pretty-printed JSON document.
+ */
 export function renderStandardDocument(servers: readonly ManagedServer[]): string {
   const document: Record<string, unknown> = {}
   for (const server of servers) document[server.serverName] = renderEntry(server)

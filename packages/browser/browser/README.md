@@ -1,10 +1,25 @@
+---
+description: "Model-facing browser-operation tools driving one persistent local Chromium through Playwright."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-browser
 
 English | [中文](README.zh.md)
 
+## Summary
+
 Model-facing browser-operation tools driving one persistent local Chromium through [Playwright](https://playwright.dev). The package owns the complete tool suite — `browser_navigate`, `browser_click`, `browser_type`, `browser_press_key`, `browser_snapshot`, `browser_screenshot` — their schemas, the pinned model-facing prose, the `aria-ref` interaction contract, engine selection, and the attachments-conditional screenshot path. The Playwright session lives behind the private `BrowserController` service; no other package reads it, so the capability ships as one plugin without a public seam ([rationale](../../../.agents/notes/implemented/feature/2026-08-16-browser-tools.md)).
 
 The tools model the Playwright `mode: 'ai'` accessibility snapshot loop: `browser_snapshot` returns the page's aria snapshot YAML with `[ref=eN]` markers, and `browser_click`/`browser_type` address elements by those refs. A ref absent from the last snapshot is rejected before any browser interaction, so a stale reference fails with a model-readable error instead of clicking the wrong element.
+
+## Table of Contents
+
+- [Tools](#tools)
+- [Model Experience](#model-experience)
+- [Dev Note](#dev-note)
+
+-----
 
 ## Tools
 
@@ -41,6 +56,13 @@ Playwright 1.61.1 is a direct dependency. A deployment that stays on the default
 ## Error taxonomy
 
 All browser failures reach the tool pipeline as `BrowserError` — the closed code set is `NO_BROWSER` (engine cannot launch), `NO_PAGE` (page closed or crashed), `STALE_REF` (locator mismatch), `BAD_TARGET` (non-http(s) or credentialed URL), and `BROWSER_FAILURE` (anything else). The registry exposes the code in structured error metadata, so policy and hooks route on it without parsing model-visible text.
+
+-----
+
+<a id="dev-note"></a>
+## Dev Note
+
+The Playwright session lives behind the private `BrowserController` service; no other package reads it, so the capability ships as one plugin without a public seam. Engine selection (`chromium` vs `chrome`) and headless mode are configuration fields; the Playwright Chromium install is a development and CI prerequisite and the package never downloads a browser at runtime.
 
 ## Model Experience
 

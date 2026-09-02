@@ -13,7 +13,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -76,7 +76,7 @@ let counter = 0
 function callTool(name: string, args: unknown, agent?: object) {
   return ctx.tools.execute({
     signal: testToolSignal,
-    callId: CallId(`browser-call-${++counter}`),
+    callId: ToolCallId(`browser-call-${++counter}`),
     name,
     arguments: args,
     ...agent ? { agent: agent as never } : {},

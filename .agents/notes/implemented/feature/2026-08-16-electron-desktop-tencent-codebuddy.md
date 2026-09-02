@@ -28,7 +28,7 @@ Electron adds a module-loading constraint. Cordis normally imports profile plugi
 
 **Rewrite the application with Tauri.** Rejected because it would introduce a second native build and bridge while the existing TypeScript Host and Web client already form the complete product.
 
-**Replace the Web carrier with Electron IPC.** Deferred because it would require a second carrier implementation and broader protocol verification without improving the requested key-only workflow. The loopback server remains bound to one ephemeral local port. This supersedes the IPC-only direction reserved by the earlier [GUI layering note](../architecture/2026-07-19-gui-layering-and-rpc-protocol.md) while retaining its client/Host separation.
+**Replace the Web carrier with Electron IPC.** Deferred because it would require a second carrier implementation and broader protocol verification without improving the requested key-only workflow. The loopback server remains bound to one ephemeral local port. This supersedes the IPC-only direction reserved by the earlier [GUI layering note](../../archived/architecture/2026-07-19-gui-layering-and-rpc-protocol.md) while retaining its client/Host separation.
 
 **Continue opening the system browser.** Rejected because it does not provide one client lifecycle or a distributable desktop application.
 

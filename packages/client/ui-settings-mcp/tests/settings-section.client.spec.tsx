@@ -5,7 +5,7 @@ import type {
   McpServerDraft, McpServerSnapshot,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '../src/client/index.ts'
-import { McpSettingsSection } from '../src/client/McpSettingsSection.tsx'
+import { McpSettingsSection, type McpSettingsProps } from '../src/client/McpSettingsSection.tsx'
 import { parseMcpJson } from '../src/client/json-import.ts'
 import { zh, type McpSettingsKey } from '../src/client/locales.ts'
 
@@ -15,7 +15,10 @@ function t(key: McpSettingsKey): string {
 
 const EMPTY: McpServerSnapshot = { writable: true, documentPath: '/home/mcp.json', servers: [] }
 const unusedHook = (() => { throw new Error('unused by MCP settings') }) as never
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook }
+type AttentionSnapshot = Parameters<Parameters<McpSettingsProps['useSessionPendingInteraction']>[0]>[0]
+const noAttention: AttentionSnapshot = new Map()
+const useSessionPendingInteraction: McpSettingsProps['useSessionPendingInteraction'] = selector => selector(noAttention)
+const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction }
 const CONFIGURED: McpServerSnapshot = {
   writable: true,
   documentPath: '/home/mcp.json',

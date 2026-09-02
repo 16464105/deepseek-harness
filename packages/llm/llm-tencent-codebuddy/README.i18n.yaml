@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/llm/llm-tencent-codebuddy/README.md
-README.md: 428b33367fa099e0f6c4d441cb7effcbc6f4b745
-README.zh.md: e132398f1cf358912de83235044eb99816780fb5
+README.md: d46fc8bbee6d18322621462eddd05ded8f659c8a
+README.zh.md: b2d5be8e295a76b8a305ef703725575a01a8d4a0

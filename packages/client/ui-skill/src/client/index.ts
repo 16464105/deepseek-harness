@@ -1,6 +1,6 @@
 /**
  * Skill reference plugin, browser half: registers the '/' skill source —
- * candidates from the skill.list RPC addressed by the per-call session
+ * candidates from the `skills/list` Remote addressed by the per-call session
  * projection's sessionId (sessions are always agent-backed; the host
  * resolves cwd from the session header). A pick lands the literal `/name `
  * text and the prompt ships the same literal (plain-text-reference decision;
@@ -10,7 +10,7 @@
  * leading `/name` naming a user-invocable skill and injects the rendered
  * body for every entry point, including `disable-model-invocation` skills the
  * model-side catalog never lists (issue #1470). The RPC rides the plugin's
- * root-context connection captured at registration — the source never reads
+ * root-context Remote captured at registration — the source never reads
  * services off a per-call argument. Draft chip visuals derive from
  * the lexicon scan; this source implements no reference codec.
  *
@@ -30,11 +30,15 @@
  * accent row derived only from each logged call/result slice.
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
-import type { ConnectionHandle, SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ClientContext, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the SlotRegistry service merge (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the Settings section slot declaration into this program.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkillRow } from './SkillRow.tsx'
@@ -59,7 +63,7 @@ interface CatalogFetch {
 }
 
 /** Required services: reference source faces plus the tool-row and locale registries. */
-export const inject = ['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote']
+export const inject = ['inputTriggers', 'sessions', 'slots', 'locale', 'remote', 'remote.skills']
 
 /**
  * Client plugin body: register the '/' source, dictionaries, and keyed tool row.
@@ -72,9 +76,8 @@ export function apply(ctx: ClientContext): void {
     SkillRow,
   ))
 
-  const skills = (ctx.get('connection') as ConnectionHandle).api.skills
-  const sessions = ctx.get('sessions') as ISessions
-  const visibility = new SkillVisibility()
+  const skills = ctx.remote.skills
+  const sessions = ctx.sessions
   // Session-keyed catalog cache; single-flight per key. Plugin-closure state:
   // the fiber effect below is its teardown boundary.
   const fetches = new Map<SessionId, CatalogFetch>()
@@ -96,12 +99,13 @@ export function apply(ctx: ClientContext): void {
 
   const fetchCatalog = (sessionId: SessionId, refresh = false): Promise<readonly SkillEntry[]> => {
     if (sessions.subagentAddress(sessionId) !== undefined) return Promise.resolve([])
+    if (refresh) invalidate(sessionId)
     const existing = fetches.get(sessionId)
     if (existing !== undefined) return existing.promise
     const abort = new AbortController()
     const promise = (async () => {
-      const { result } = await skills.list({ sessionId, ...(refresh ? { refresh: true } : {}) }, abort.signal)
-      if (!result.ok) throw new Error(`skill.list failed: ${result.error.code}: ${result.error.message}`)
+      const result = await skills.list({ sessionId, ...(refresh ? { refresh: true } : {}) }, abort.signal)
+      if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`)
       return result.value.skills
     })()
     const entry: CatalogFetch = { promise, abort }
@@ -132,28 +136,10 @@ export function apply(ctx: ClientContext): void {
     for (const key of [...fetches.keys()]) invalidate(key)
   }
 
-  const currentSession: SkillSettingsInjected['currentSession'] = {
-    getSnapshot: () => sessions.list.getSnapshot().current,
-    subscribe: listener => sessions.list.subscribe(listener),
-  }
-  // The skills directory action state: the host's answer to "where do skills
-  // live" plus the open gesture. One instance shared by the settings section.
-  const directoryStore = new SkillsDirectoryStore((ctx.get('connection') as ConnectionHandle).api)
-  const settingsInjected = (): SkillSettingsInjected => ({
-    currentSession,
-    visibility,
-    list: (sessionId, refresh) => {
-      if (refresh) invalidate(sessionId)
-      return fetchCatalog(sessionId, refresh)
-    },
-    hooks: { skillsDirectory: directoryStore.store },
-    loadDirectory: (sessionId) => { void directoryStore.load(sessionId) },
-    openDirectory: () => { void directoryStore.open() },
-  })
-
   // The bound translate resolves against the registered dictionaries with the
   // locale service's own fallback ladder; candidate-time reads stay plain text.
   const t = ctx.locale.bind(NS)
+  const visibility = new SkillVisibility()
 
   const source: InputTriggerSource = {
     trigger: '/',
@@ -178,9 +164,7 @@ export function apply(ctx: ClientContext): void {
       fetchCatalog(session.sessionId).catch(() => {})
     },
     lexicon(session) {
-      return fetches.get(session.sessionId)?.settled
-        ?.filter(skill => visibility.isVisible(skill.name))
-        .map(skill => skill.name)
+      return fetches.get(session.sessionId)?.settled?.map(skill => skill.name)
     },
     subscribeLexicon(session, listener) {
       const key = session.sessionId
@@ -208,9 +192,33 @@ export function apply(ctx: ClientContext): void {
   // session's cached catalog belongs to the composition it no longer runs.
   ctx.remote.$on('agent-preset/selected', invalidate)
   ctx.on('connection/reset', clearAll)
-  ctx.effect(() => visibility.subscribe(() => {
-    for (const sessionId of fetches.keys()) notifyLexicon(sessionId)
-  }), 'ui-skill: visibility invalidations')
+  ctx.effect(() => {
+    const unregister = inputTriggers.registerSource(source)
+    return () => {
+      unregister()
+      clearAll()
+    }
+  }, 'ui-skill: source')
+
+  const currentSession: SkillSettingsInjected['currentSession'] = {
+    getSnapshot: () => sessions.list.getSnapshot().current,
+    subscribe: listener => sessions.list.subscribe(listener),
+  }
+  // The skills directory action state: the host's answer to "where do skills
+  // live" plus the open gesture. One instance shared by the settings section.
+  const directoryStore = new SkillsDirectoryStore(ctx.remote.skills)
+  const settingsInjected = (): SkillSettingsInjected => ({
+    currentSession,
+    visibility,
+    list: (sessionId, refresh) => {
+      if (refresh) invalidate(sessionId)
+      return fetchCatalog(sessionId, refresh)
+    },
+    hooks: { skillsDirectory: directoryStore.store },
+    loadDirectory: (sessionId) => { void directoryStore.load(sessionId) },
+    openDirectory: () => { void directoryStore.open() },
+  })
+
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'skills',
@@ -219,11 +227,4 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: settingsInjected,
   }, SkillSettingsSection))
-  ctx.effect(() => {
-    const unregister = inputTriggers.registerSource(source)
-    return () => {
-      unregister()
-      clearAll()
-    }
-  }, 'ui-skill: source')
 }

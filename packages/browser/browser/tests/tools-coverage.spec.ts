@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { CallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, LlmAdapter, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmModelInfo, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
@@ -109,7 +109,7 @@ const toolSignal = new AbortController().signal
 function callTool(name: string, args: unknown, agent?: object) {
   return ctx.tools.execute({
     signal: toolSignal,
-    callId: CallId(`tool-cov-call-${++counter}`),
+    callId: ToolCallId(`tool-cov-call-${++counter}`),
     name,
     arguments: args,
     ...agent ? { agent: agent as never } : {},
@@ -150,7 +150,7 @@ describe('browser tools registration surface', () => {
     // registry's scheduling-mode resolver.
     const all = ['browser_navigate', 'browser_click', 'browser_type', 'browser_press_key', 'browser_snapshot', 'browser_screenshot']
     for (const name of all) {
-      expect(ctx.tools.executionMode({ signal: toolSignal, callId: CallId(`mode-${name}`), name, arguments: {} }).kind).toBe('exclusive')
+      expect(ctx.tools.executionMode({ signal: toolSignal, callId: ToolCallId(`mode-${name}`), name, arguments: {} }).kind).toBe('exclusive')
     }
   })
 
@@ -288,7 +288,7 @@ describe('browser plugin apply', () => {
 function callToolWith(target: Context, name: string, args: unknown, agent?: object) {
   return target.tools.execute({
     signal: toolSignal,
-    callId: CallId(`tool-cov-call-${++counter}`),
+    callId: ToolCallId(`tool-cov-call-${++counter}`),
     name,
     arguments: args,
     ...agent ? { agent: agent as never } : {},

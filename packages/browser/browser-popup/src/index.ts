@@ -10,7 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type { BrowserController } from '@deepseek-ai/dsh-browser'
-import type { JsonValue } from '@deepseek-ai/dsh-session/types'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { BrowserShotResult, BrowserPageInfoResult, BrowserNavigateResult } from './types.ts'
 
 export type { BrowserShotResult, BrowserPageInfoResult, BrowserNavigateResult } from './types.ts'
@@ -57,7 +57,10 @@ export class BrowserPopupService extends TypertRemoteService {
     super(ctx, 'browserPopup')
   }
 
-  /** Capture the current page as a binary-safe base64 PNG. */
+  /**
+   * Capture the current page as a binary-safe base64 PNG.
+   * @returns the screenshot result, or `ok: false` when the browser is unavailable or capture fails.
+   */
   @Remote('shot')
   async shot(): Promise<BrowserShotResult> {
     const browser = this.ctx.get('browser') as BrowserController | undefined
@@ -80,7 +83,10 @@ export class BrowserPopupService extends TypertRemoteService {
     }
   }
 
-  /** Read the current page URL and title. */
+  /**
+   * Read the current page URL and title.
+   * @returns the page facts, or `ok: false` when the browser is unavailable.
+   */
   @Remote('pageInfo')
   async pageInfo(): Promise<BrowserPageInfoResult> {
     const browser = this.ctx.get('browser') as BrowserController | undefined
@@ -95,7 +101,11 @@ export class BrowserPopupService extends TypertRemoteService {
     }
   }
 
-  /** Navigate the persistent page to an absolute http(s) URL. */
+  /**
+   * Navigate the persistent page to an absolute http(s) URL.
+   * @param args - payload carrying the target `url` string.
+   * @returns the navigation result, or `ok: false` when the browser is unavailable.
+   */
   @Remote('navigate')
   async navigate(args: JsonValue): Promise<BrowserNavigateResult> {
     const url = args && typeof args === 'object' && typeof (args as { url?: unknown }).url === 'string'

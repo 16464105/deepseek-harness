@@ -7,6 +7,7 @@ import type { Config as McpClientConfig, McpConnectionStatus } from '@deepseek-a
 import { watch as chokidarWatch } from 'chokidar'
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { canOpenNativePath, openNativePath } from '@deepseek-ai/dsh-native-command'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { parseStandardDocument, renderStandardDocument, type ManagedServer } from './document.ts'
@@ -189,7 +190,10 @@ export class McpManager extends TypertRemoteService {
     this.servers = [...servers]
   }
 
-  /** Materialize the absent `mcp.json` and return its path for the open action. */
+  /**
+   * Materialize the absent `mcp.json` and return its path for the open action.
+   * @returns the absolute document path after materialization.
+   */
   @Remote('openDocument')
   async openDocument(): Promise<string> {
     await this.ready
@@ -200,6 +204,26 @@ export class McpManager extends TypertRemoteService {
       await this.persist([])
     }
     return this.documentPath
+  }
+
+  /**
+   * Open the managed `mcp.json` in a native text editor (client-side action).
+   * @param signal - caller lifetime; abort terminates the native command.
+   * @returns whether the native opener accepted the path, plus the path for text display.
+   */
+  @Remote('open')
+  async open(signal: AbortSignal): Promise<{ opened: boolean; path: string }> {
+    await this.ready
+    try {
+      await readFile(this.documentPath, 'utf8')
+    } catch (error) {
+      if (!isENOENT(error)) throw error
+      await this.persist([])
+    }
+    if (!canOpenNativePath()) return { opened: false, path: this.documentPath }
+    signal.throwIfAborted()
+    await openNativePath(this.documentPath, signal)
+    return { opened: true, path: this.documentPath }
   }
 
   /** Return every managed server without environment variables or HTTP headers.

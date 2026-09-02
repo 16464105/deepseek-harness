@@ -1,8 +1,8 @@
 /** MCP management Settings contribution. */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { McpSettingsSection, type McpSettingsInjected } from './McpSettingsSection.tsx'
@@ -40,9 +40,7 @@ export function apply(ctx: ClientContext): void {
     openDocument: () => {
       // The host materializes the absent `mcp.json`, resolves its path, and
       // opens it; the client never submits a path of its own.
-      void unwrap(ctx.remote.mcpManager.openDocument()).then(path =>
-        (ctx.get('connection') as ConnectionHandle).api.host.openPath({ path }),
-      ).catch(() => undefined)
+      void unwrap(ctx.remote.mcpManager.open()).catch(() => undefined)
     },
   })
   ctx.slots.inject('settings.section', () => ctx.slots.register({

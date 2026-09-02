@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-打包后的桌面 Host 从 `$DSH_HOME/profiles/<name>/node_modules` 加载树外 profile 插件。该模块对 `@deepseek-ai/dsh-tools` 这类箱内 peer 的嵌套 `import` 会走到 `$DSH_HOME/profiles/node_modules`，其 healer 符号链接指向 `app.asar`。Node 的 ESM `getPackageJSONURL` 不会把该符号链接路径当作归档成员（跟随链接之前路径不含 `.asar` 段，而归档本身是文件），因此用户安装社区组合包后启动会以 `ERR_MODULE_NOT_FOUND` 失败。Loader `resolveImport` 已经把配置行自身的裸包名转换成安装目录 `file:` URL；它不会对那个文件内部的导入运行。[桌面打包决策](../feature/2026-08-16-electron-desktop-tencent-codebuddy.md) 把 JavaScript 留在归档内，只解包原生二进制。
+打包后的桌面 Host 从 `$DSH_HOME/profiles/<name>/node_modules` 加载树外 profile 插件。该模块对 `@deepseek-ai/dsh-tools` 这类箱内 peer 的嵌套 `import` 会走到 `$DSH_HOME/profiles/node_modules`，其 healer 符号链接指向 `app.asar`。Node 的 ESM `getPackageJSONURL` 不会把该符号链接路径当作归档成员（跟随链接之前路径不含 `.asar` 段，而归档本身是文件），因此用户安装社区组合包后启动会以 `ERR_MODULE_NOT_FOUND` 失败。Loader `resolveImport` 已经把配置行自身的裸包名转换成安装目录 `file:` URL；它不会对那个文件内部的导入运行。[桌面打包决策](../feature/2026-08-16-electron-desktop-tencent-codebuddy.zh.md) 把 JavaScript 留在归档内，只解包原生二进制。
 
 ## Decision
 

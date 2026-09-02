@@ -35,7 +35,7 @@ const registerHooks = (
   module as typeof module & { registerHooks?: (hooks: { resolve: ResolveHook }) => void }
 ).registerHooks
 
-let installationRequire: NodeRequire | undefined
+let installationRequire: NodeJS.Require | undefined
 let hookInstalled = false
 
 const SCHEME = /^[a-zA-Z][a-zA-Z\d+.-]*:/

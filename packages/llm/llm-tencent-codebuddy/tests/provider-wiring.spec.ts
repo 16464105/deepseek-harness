@@ -18,6 +18,9 @@ const state = vi.hoisted(() => ({
   services: new Map<string, unknown>(),
   settingsHooks: [] as SettingsHooks[],
 }))
+const settingsInstall = ((_owner: unknown, _ns: string, _schema: unknown, _config: unknown, hooks: SettingsHooks) => {
+  state.settingsHooks.push(hooks)
+})
 
 vi.mock('@deepseek-ai/dsh-launch-environment', () => ({
   launchEnvironmentOf: () => state.launchEnvironment,
@@ -34,21 +37,6 @@ vi.mock('@deepseek-ai/dsh-llm-pi-ai', async (importOriginal) => {
   }
 })
 
-vi.mock('@deepseek-ai/dsh-settings', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@deepseek-ai/dsh-settings')>()
-  return {
-    ...actual,
-    installSettingsSection: vi.fn((
-      _ctx: Context,
-      _namespace: string,
-      _schema: unknown,
-      _config: Config,
-      hooks: SettingsHooks,
-    ) => {
-      state.settingsHooks.push(hooks)
-    }),
-  }
-})
 
 import { apply, TENCENT_CODEBUDDY_PROVIDER } from '../src/index.ts'
 
@@ -60,7 +48,12 @@ function providerContext(): {
   const info = vi.fn()
   const replace = vi.fn()
   const ctx = {
-    get: (name: string) => state.services.get(name),
+    get: (name: string) => name === 'settings' ? { installSection: settingsInstall } : state.services.get(name),
+    settings: { installSection: settingsInstall },
+    inject: (_dependencies: readonly string[], callback: (injected: Context) => void) => {
+      callback(ctx)
+      return () => {}
+    },
     logger: { info },
     llm: {
       registerAdapter: vi.fn(() => ({ replace })),

@@ -6,7 +6,7 @@ Status: implemented
 
 ## Problem
 
-在打包后的 Windows 桌面里选择工作区会报 `win32 folder dialog worker exited before reporting a result`。原生选择器以 `ELECTRON_RUN_AS_NODE=1` spawn `process.execPath` 来运行 `lib/worker.cjs`。该子进程无法从 `app.asar` 加载 worker，因此打包器把入口改写到 `app.asar.unpacked`。子进程的 `require('koffi')` 再从解包入口往 `node_modules` 回走，找不到仍留在归档里的包（与 [asar 嵌套 ESM 导入](2026-08-21-asar-fallback-nested-esm-imports.md) 同类缺口），于是在没有 IPC 结果的情况下退出。spawn 还把 stderr 设成 inherit 而不是 pipe，Host 错误里没有 worker 诊断。[koffi 子进程选择器](../feature/2026-08-02-win32-in-process-folder-dialog.md) 仍是普通 Node 的 Windows 层级；它本来就不是为 Electron 归档设计的。
+在打包后的 Windows 桌面里选择工作区会报 `win32 folder dialog worker exited before reporting a result`。原生选择器以 `ELECTRON_RUN_AS_NODE=1` spawn `process.execPath` 来运行 `lib/worker.cjs`。该子进程无法从 `app.asar` 加载 worker，因此打包器把入口改写到 `app.asar.unpacked`。子进程的 `require('koffi')` 再从解包入口往 `node_modules` 回走，找不到仍留在归档里的包（与 [asar 嵌套 ESM 导入](2026-08-21-asar-fallback-nested-esm-imports.zh.md) 同类缺口），于是在没有 IPC 结果的情况下退出。spawn 还把 stderr 设成 inherit 而不是 pipe，Host 错误里没有 worker 诊断。[koffi 子进程选择器](../feature/2026-08-02-win32-in-process-folder-dialog.zh.md) 仍是普通 Node 的 Windows 层级；它本来就不是为 Electron 归档设计的。
 
 ## Decision
 
@@ -14,7 +14,7 @@ Status: implemented
 
 ## Alternatives considered
 
-**继续为打包 Electron 修补 koffi 子进程（asar 解包再加 worker 内的 resolve hook）。** 否决：Electron 已经拥有主进程目录选择器；为一次对话框再做一条逃出归档的路径，是 [asar 回退](2026-08-21-asar-fallback-nested-esm-imports.md) 问题的第二份副本。
+**继续为打包 Electron 修补 koffi 子进程（asar 解包再加 worker 内的 resolve hook）。** 否决：Electron 已经拥有主进程目录选择器；为一次对话框再做一条逃出归档的路径，是 [asar 回退](2026-08-21-asar-fallback-nested-esm-imports.zh.md) 问题的第二份副本。
 
 **worker 退出后回退到 browse 对话框。** 否决：本机桌面操作者应当得到操作系统文件夹选择器；子进程静默退出是打包缺陷，不是缺少工具。
 

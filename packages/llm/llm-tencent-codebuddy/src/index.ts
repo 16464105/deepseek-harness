@@ -10,19 +10,18 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
+// Type-only: pulls the settings Context merge (ctx.settings) into this program.
+import type {} from '@deepseek-ai/dsh-settings'
 import {
   assertUsableApiKey,
   LlmError,
   RetryPolicySchema,
   type RetryPolicyConfig,
 } from '@deepseek-ai/dsh-llm'
-import {
-  PiAiAdapter,
-  resolveProfiles,
-  type PiAiModelProfile,
-  type ResolvedPiAiProviderProfile,
-} from '@deepseek-ai/dsh-llm-pi-ai'
-import { deepEqualJson, installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+import { PiAiAdapter, type PiAiModelProfile, type ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
+import { resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai/src/config.ts'
+import { authContextFrom, credentialStoreFrom } from '@deepseek-ai/dsh-llm-pi-ai/src/auth.ts'
+import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { TENCENT_CODEBUDDY_MODELS } from './catalog.ts'
 import {
@@ -41,7 +40,7 @@ export const TENCENT_CODEBUDDY_MODEL = 'gpt-5.6-sol'
 /** Credential reference written by the desktop Models onboarding flow. */
 export const TENCENT_CODEBUDDY_API_KEY = 'TENCENT_CODEBUDDY_API_KEY'
 
-const NS = settingsNamespace('llm-tencent-codebuddy')
+const NS = 'llm-tencent-codebuddy'
 const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 
 /** Provider configuration. Endpoint, protocol, headers, and catalog stay package-owned. */
@@ -151,6 +150,7 @@ export function apply(ctx: Context, config: Config): void {
   const adapter = new PiAiAdapter({
     profiles,
     resolveApiKey,
+    auth: { credentials: credentialStoreFrom(ctx), authContext: authContextFrom(ctx) },
     resolveAttachments: () => ctx.get('attachments'),
     prepareRequest: ({ options }) => ({
       headers: tencentRequestHeaders(options),
@@ -171,9 +171,11 @@ export function apply(ctx: Context, config: Config): void {
     registration.replace([TENCENT_CODEBUDDY_PROVIDER])
     registeredPolicy = next
   }
-  installSettingsSection(ctx, NS, Config, config, {
-    setSource: (source) => { current = source },
-    onChange: ensureRegistrationFacts,
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, NS, Config, config, {
+      setSource: (source) => { current = source },
+      onChange: ensureRegistrationFacts,
+    })
   })
 }
 

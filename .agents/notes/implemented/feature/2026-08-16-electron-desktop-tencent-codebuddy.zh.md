@@ -16,9 +16,9 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 **desktop profile 是 `base + web-app + desktop-app`。** 最后一层只改变部署事实：临时回环绑定、不打印 URL、不注入 Web 表层提示词上下文、不启用 client HMR、保留直接 DeepSeek 适配器、挂载腾讯 CodeBuddy，并选择 `tencent-internal/gpt-5.6-sol`。Electron 启动器会关闭用户 patch 监视，因为其运行时不提供 HMR watcher 所需的 Node 能力。桌面状态默认使用 Electron 自己的 Harness home，而不是 CLI home。
 
-**腾讯协议配置固定，可选模型则跟随本地 CodeBuddy 桌面客户端。** `dsh-llm-tencent-codebuddy` 持有 `https://copilot.tencent.com/v2` 端点、OpenAI Chat Completions 协议、CodeBuddy 路由／IDE 标头、请求身份、消息归一化、流式 usage、最小输出限制，以及从 TT Switch 实现核对的 tool-choice 适配。腾讯只从当前 user 消息处理图片，而 Harness 可能把工作区指令追加为另一条相邻 user 消息；适配器只在相邻 user 消息组含图片时合并该组，并保持片段顺序，不改变普通纯文本历史。适配器提供包持有的固定 catalog：29 个桌面聊天模型（`craft`/`ask`/`plan` 并集，取自一次桌面客户端缓存投影）；配置的 `models` 列表会替换它，这正是 Models 卡片编辑目录的方式（见[模型选择合并笔记](2026-08-16-tencent-model-selection-joins-cache-and-user-models.md)）。它通过公开的 profile 解析和请求准备 hook 复用 pi-ai。Models 引导协调器在 desktop 同时组合两条目标时先选择腾讯 CodeBuddy，未挂载腾讯时再回退到 DeepSeek；因此 desktop 组合优先显示腾讯 Key 输入框，同时保留两个模型 catalog，并通过现有凭据服务存储机密。
+**腾讯协议配置固定，可选模型则跟随本地 CodeBuddy 桌面客户端。** `dsh-llm-tencent-codebuddy` 持有 `https://copilot.tencent.com/v2` 端点、OpenAI Chat Completions 协议、CodeBuddy 路由／IDE 标头、请求身份、消息归一化、流式 usage、最小输出限制，以及从 TT Switch 实现核对的 tool-choice 适配。腾讯只从当前 user 消息处理图片，而 Harness 可能把工作区指令追加为另一条相邻 user 消息；适配器只在相邻 user 消息组含图片时合并该组，并保持片段顺序，不改变普通纯文本历史。适配器提供包持有的固定 catalog：29 个桌面聊天模型（`craft`/`ask`/`plan` 并集，取自一次桌面客户端缓存投影）；配置的 `models` 列表会替换它，这正是 Models 卡片编辑目录的方式（见[模型选择合并笔记](2026-08-16-tencent-model-selection-joins-cache-and-user-models.zh.md)）。它通过公开的 profile 解析和请求准备 hook 复用 pi-ai。Models 引导协调器在 desktop 同时组合两条目标时先选择腾讯 CodeBuddy，未挂载腾讯时再回退到 DeepSeek；因此 desktop 组合优先显示腾讯 Key 输入框，同时保留两个模型 catalog，并通过现有凭据服务存储机密。
 
-**Loader 导入解析是逐实例的 Host hook，并由每棵 EntryTree 调用。** vendored Loader 公开 `resolveImport(specifier, parentURL, attributes)`；`EntryTree.import()` 会在私有适配器或原生 dynamic import 之前调用它。封闭运行时传入 `bareModuleBaseUrl` 时，app boot 会提供一个基于 `createRequire(installAnchor).resolve()` 的 resolver，把裸包名转换为绝对 file URL，同时保留相对配置的导入。同一基准还会安装进程级 Node `registerHooks` 解析回退，使树外模块内部的嵌套 `import` 在 `$DSH_HOME/profiles/node_modules` 符号链接指向 `app.asar` 时仍能到达安装目录（[asar 嵌套 ESM 解析](../bug-fix/2026-08-21-asar-fallback-nested-esm-imports.md)）。client 模块发现使用 Loader hook 解析包元数据，而不是跟随这些可写 profile 符号链接。受维护的 profile module fallback 仍是源码启动和 CJS `createRequire` 用来解析这些包名的已安装依赖闭包。桌面部署清单会显式提供该闭包中的每个必需 workspace peer，仓库运行时闭包门禁会审计两个可执行部署根。该机制覆盖嵌套树和运行时创建的树，并且在有无 Node 私有适配器时都能工作，包括可写 profile 位于应用目录之外的 Electron 归档。
+**Loader 导入解析是逐实例的 Host hook，并由每棵 EntryTree 调用。** vendored Loader 公开 `resolveImport(specifier, parentURL, attributes)`；`EntryTree.import()` 会在私有适配器或原生 dynamic import 之前调用它。封闭运行时传入 `bareModuleBaseUrl` 时，app boot 会提供一个基于 `createRequire(installAnchor).resolve()` 的 resolver，把裸包名转换为绝对 file URL，同时保留相对配置的导入。同一基准还会安装进程级 Node `registerHooks` 解析回退，使树外模块内部的嵌套 `import` 在 `$DSH_HOME/profiles/node_modules` 符号链接指向 `app.asar` 时仍能到达安装目录（[asar 嵌套 ESM 解析](../bug-fix/2026-08-21-asar-fallback-nested-esm-imports.zh.md)）。client 模块发现使用 Loader hook 解析包元数据，而不是跟随这些可写 profile 符号链接。受维护的 profile module fallback 仍是源码启动和 CJS `createRequire` 用来解析这些包名的已安装依赖闭包。桌面部署清单会显式提供该闭包中的每个必需 workspace peer，仓库运行时闭包门禁会审计两个可执行部署根。该机制覆盖嵌套树和运行时创建的树，并且在有无 Node 私有适配器时都能工作，包括可写 profile 位于应用目录之外的 Electron 归档。
 
 **macOS 发行使用按架构分离的 ASAR DMG。** 一个打包入口会生成 `arm64` 与 `x64` DMG，并在每个文件名中标明架构；构建不会生成 Universal 应用。Electron Builder 会归档 JavaScript 与运行时资源，排除 TypeScript、source map 和包根目录的开发材料，并且只解包必须以普通文件存在的原生库与可执行文件。按架构过滤器只保留匹配的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 包。Developer ID 签名使用构建主机上的可用身份；对外分发要求同一产物完成 Apple 公证，而不是要求接收者关闭 Gatekeeper 隔离。
 
@@ -28,7 +28,7 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 **用 Tauri 重写应用。** 拒绝，因为这会引入第二套原生构建和桥接，而现有 TypeScript Host 与 Web client 已经组成完整产品。
 
-**用 Electron IPC 替换 Web 载体。** 延后，因为它需要第二套载体实现和更广的协议验证，却不能改善所要求的只填 Key 流程。回环服务器仍只绑定一个临时本地端口。该选择取代早期 [GUI 分层 Note](../architecture/2026-07-19-gui-layering-and-rpc-protocol.md)预留的仅 IPC 方向，同时保留其 client/Host 分层。
+**用 Electron IPC 替换 Web 载体。** 延后，因为它需要第二套载体实现和更广的协议验证，却不能改善所要求的只填 Key 流程。回环服务器仍只绑定一个临时本地端口。该选择取代早期 [GUI 分层 Note](../../archived/architecture/2026-07-19-gui-layering-and-rpc-protocol.md)预留的仅 IPC 方向，同时保留其 client/Host 分层。
 
 **继续打开系统浏览器。** 拒绝，因为它无法提供统一客户端生命周期或可分发的桌面应用。
 
