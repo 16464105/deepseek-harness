@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-应用于 [`dsh-base`](../base/README.zh.md) 与 [`dsh-web-app`](../web-app/README.zh.md) 之后的桌面 profile 补丁层。它为 Electron 保留现有 Host 与浏览器客户端组合,将 Web 服务器绑定到临时回环端口,抑制打印 URL 与 Web 面提示上下文,禁用客户端 HMR,保留直连 DeepSeek 适配器,挂载 [`dsh-llm-tencent-codebuddy`](../../llm/llm-tencent-codebuddy/README.zh.md),并选择 `tencent-internal/gpt-5.6-sol` 作为默认模型。
+应用于 [`dsh-base`](../base/README.zh.md) 与 [`dsh-web-app`](../web-app/README.zh.md) 之后的桌面 profile 补丁层。它为 Electron 保留现有 Host 与浏览器客户端组合,将 Web 服务器绑定到临时回环端口,抑制打印 URL、默认浏览器打开与 Web 面提示上下文,禁用客户端 HMR,保留直连 DeepSeek 适配器,挂载 [`dsh-llm-tencent-codebuddy`](../../llm/llm-tencent-codebuddy/README.zh.md),并选择 `tencent-internal/gpt-5.6-sol` 作为默认模型。
 
 Electron 主进程(而非本 bundle)拥有原生窗口、单实例行为、桌面 Harness home 与进程关闭。本包仅携带补丁列表与必需的包不变式伴生文件。
 

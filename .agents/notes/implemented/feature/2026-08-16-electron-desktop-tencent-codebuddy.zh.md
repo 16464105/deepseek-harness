@@ -12,9 +12,9 @@ Electron 还带来模块加载限制。Cordis 通常通过 Node 私有模块适�
 
 ## 决策
 
-**Electron 通过私有回环 Host 复用已经组装好的 Web 应用。** `apps/desktop` 在进程内启动随发行版交付的 `desktop` profile，取得其临时 `127.0.0.1` Web 服务器 URL，并在启用 sandbox 的 BrowserWindow 中加载该 URL。主进程负责单实例锁与 Host dispose。renderer 继续使用现有 client 插件图和 HTTP/WebSocket 载体；不存在桌面专用前端或协议分叉。
+**Electron 通过私有回环 Host 复用已经组装好的 Web 应用。** `apps/desktop` 在进程内启动随发行版交付的 `desktop` profile，把 Connection 为临时 `127.0.0.1` 端口签发的已认证回环 URL 加载进启用 sandbox 的 BrowserWindow，并在之后重建窗口时再次加载该 URL。主进程负责单实例锁与 Host dispose。renderer 继续使用现有 client 插件图和 HTTP/WebSocket 载体；不存在桌面专用前端或协议分叉。
 
-**desktop profile 是 `base + web-app + desktop-app`。** 最后一层只改变部署事实：临时回环绑定、不打印 URL、不注入 Web 表层提示词上下文、不启用 client HMR、保留直接 DeepSeek 适配器、挂载腾讯 CodeBuddy，并选择 `tencent-internal/gpt-5.6-sol`。Electron 启动器会关闭用户 patch 监视，因为其运行时不提供 HMR watcher 所需的 Node 能力。桌面状态默认使用 Electron 自己的 Harness home，而不是 CLI home。
+**desktop profile 是 `base + web-app + desktop-app`。** 最后一层只改变部署事实：临时回环绑定、不打印 URL、不打开系统浏览器、不注入 Web 表层提示词上下文、不启用 client HMR、保留直接 DeepSeek 适配器、挂载腾讯 CodeBuddy，并选择 `tencent-internal/gpt-5.6-sol`。Electron 启动器会关闭用户 patch 监视，因为其运行时不提供 HMR watcher 所需的 Node 能力。桌面状态默认使用 Electron 自己的 Harness home，而不是 CLI home。
 
 **腾讯协议配置固定，可选模型则跟随本地 CodeBuddy 桌面客户端。** `dsh-llm-tencent-codebuddy` 持有 `https://copilot.tencent.com/v2` 端点、OpenAI Chat Completions 协议、CodeBuddy 路由／IDE 标头、请求身份、消息归一化、流式 usage、最小输出限制，以及从 TT Switch 实现核对的 tool-choice 适配。腾讯只从当前 user 消息处理图片，而 Harness 可能把工作区指令追加为另一条相邻 user 消息；适配器只在相邻 user 消息组含图片时合并该组，并保持片段顺序，不改变普通纯文本历史。适配器提供包持有的固定 catalog：29 个桌面聊天模型（`craft`/`ask`/`plan` 并集，取自一次桌面客户端缓存投影）；配置的 `models` 列表会替换它，这正是 Models 卡片编辑目录的方式（见[模型选择合并笔记](2026-08-16-tencent-model-selection-joins-cache-and-user-models.zh.md)）。它通过公开的 profile 解析和请求准备 hook 复用 pi-ai。Models 引导协调器在 desktop 同时组合两条目标时先选择腾讯 CodeBuddy，未挂载腾讯时再回退到 DeepSeek；因此 desktop 组合优先显示腾讯 Key 输入框，同时保留两个模型 catalog，并通过现有凭据服务存储机密。
 

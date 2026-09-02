@@ -733,6 +733,40 @@ describe('healProfilesModuleFallback', () => {
     }
   })
 
+  it('writes ESM proxies when installAnchor names an Electron asar path', async () => {
+    const root = tmp()
+    const appDir = join(root, 'Contents', 'Resources', 'app.asar')
+    const bundleDir = join(appDir, 'node_modules', 'bundle-a')
+    mkdirSync(bundleDir, { recursive: true })
+    writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
+      name: 'bundle-a',
+      version: '0.0.0',
+      type: 'module',
+      main: './index.js',
+    }))
+    writeFileSync(join(bundleDir, 'index.js'), 'export const packageName = "bundle-a"\n')
+    writeFileSync(join(appDir, 'package.json'), JSON.stringify({
+      name: 'dsh-app',
+      version: '0.0.0',
+      type: 'module',
+      main: './index.js',
+      dependencies: { 'bundle-a': '0.0.0' },
+    }))
+    writeFileSync(join(appDir, 'index.js'), 'export const packageName = "dsh-app"\n')
+    const anchor = join(appDir, 'package.json')
+    const home = tmp()
+    const fallback = join(home, 'profiles', 'node_modules', 'bundle-a')
+    // A prior Electron heal left OS symlinks into the asar; the next launch
+    // replaces them with proxies so roster health can see package.json.
+    mkdirSync(join(home, 'profiles', 'node_modules'), { recursive: true })
+    symlinkSync(bundleDir, fallback)
+
+    await healProfilesModuleFallback({ installAnchor: anchor, home })
+    expect(lstatSync(fallback).isSymbolicLink()).toBe(false)
+    expect(existsSync(join(fallback, 'package.json'))).toBe(true)
+    await expect(import(join(fallback, 'entry-0.js'))).resolves.toMatchObject({ packageName: 'bundle-a' })
+  })
+
   it('resolves import-only exports from each package installation', async () => {
     const anchor = stageInstallation({
       'bundle-a': { patch: '[]\n', deps: { 'nested-esm': '0.0.0' } },

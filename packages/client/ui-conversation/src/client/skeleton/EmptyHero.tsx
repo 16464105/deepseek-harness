@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import {
-  FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, IconChevronDownOutline14, IconFolderClose16, IconFolderOpen16,
+  DEEPSEEK_BRAND_BLUE, FISH_LOGO_PATH, FISH_LOGO_VIEWBOX, IconChevronDownOutline14, IconFolderClose16, IconFolderOpen16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { ConversationSlotProps } from '../contract/slots.ts'
@@ -107,7 +107,7 @@ function HeroFish({ hovering }: { hovering: boolean }) {
       fill="none"
       aria-hidden="true"
     >
-      <path d={FISH_LOGO_PATH} fill="currentColor">
+      <path d={FISH_LOGO_PATH} fill={DEEPSEEK_BRAND_BLUE}>
         {hovering && (
           <animate
             attributeName="d"

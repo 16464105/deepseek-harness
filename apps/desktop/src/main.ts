@@ -5,8 +5,9 @@ import { inspect } from 'node:util'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { loadLayeredEnv } from '@deepseek-ai/dsh-app-boot'
 import { runProfile, type RunProfileOptions } from '@deepseek-ai/dsh/profile-boot'
+import type {} from '@deepseek-ai/dsh-client-connection'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
-import { isApplicationNavigation, isExternalWebUrl } from './navigation.ts'
+import { authenticatedApplicationUrl, isApplicationNavigation, isExternalWebUrl } from './navigation.ts'
 
 const PROFILE = 'desktop'
 let mainWindow: BrowserWindow | undefined
@@ -52,6 +53,13 @@ function webServerOf(active: Awaited<ReturnType<typeof runProfile>>): WebServer 
   return active.ctx.get<'webServer'>('webServer')
 }
 
+function applicationUrlOf(active: Awaited<ReturnType<typeof runProfile>>): string | undefined {
+  const webServer = webServerOf(active)
+  const connection = active.ctx.get('connection')
+  if (webServer === undefined || connection === undefined) return undefined
+  return authenticatedApplicationUrl(webServer.port, baseUrl => connection.authenticatedUrl(baseUrl))
+}
+
 async function startHost(): Promise<string> {
   process.env.DSH_HOME ??= join(app.getPath('userData'), 'harness')
   process.chdir(app.getPath('home'))
@@ -63,9 +71,9 @@ async function startHost(): Promise<string> {
     watchUserPatches: false,
   }
   host = await runProfile(options)
-  const webServer = webServerOf(host)
-  if (webServer === undefined) throw new Error('desktop: webServer did not mount')
-  return `http://127.0.0.1:${String(webServer.port)}`
+  const url = applicationUrlOf(host)
+  if (url === undefined) throw new Error('desktop: webServer or connection did not mount')
+  return url
 }
 
 async function launch(): Promise<void> {
@@ -87,9 +95,8 @@ if (!primary) {
   app.on('second-instance', focusWindow)
   app.on('activate', () => {
     if (mainWindow === undefined && host !== undefined) {
-      const webServer = webServerOf(host)
-      if (webServer !== undefined) {
-        const url = `http://127.0.0.1:${String(webServer.port)}`
+      const url = applicationUrlOf(host)
+      if (url !== undefined) {
         mainWindow = secureWindow(url)
         void mainWindow.loadURL(url)
       }

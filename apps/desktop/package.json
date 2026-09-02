@@ -218,7 +218,7 @@
   "build": {
     "appId": "com.deepseek.harness",
     "productName": "DeepSeek Harness",
-    "icon": "../web/public/favicon.svg",
+    "icon": "build/icon.svg",
     "asar": {
       "smartUnpack": false
     },

@@ -107,10 +107,10 @@
   justify-content: flex-start;
 }
 
-/* Brand group (figma I133:7632): the full wordmark rides the text ink
-   (figma flows: the main-screen instance is black; blue is brand
-   emphasis only). A button only in behavior (New Session shortcut): the
-   pointer cursor is the sole affordance — no hover chrome on the mark. */
+/* Brand group (figma I133:7632): the whale mark uses brand blue; the
+   product name rides the primary label ink. A button only in behavior
+   (New Session shortcut): the pointer cursor is the sole affordance —
+   no hover chrome on the mark. */
 .brand {
   flex: 1;
   min-width: 0;

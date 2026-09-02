@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-21-asar-fallback-nested-esm-imports.md
-2026-08-21-asar-fallback-nested-esm-imports.md: d9299c62bc70b29290f462030668b3760f8516d6
-2026-08-21-asar-fallback-nested-esm-imports.zh.md: 57ea0315d59134919e1126de39a43ea5d2ca2f80
+2026-08-21-asar-fallback-nested-esm-imports.md: 76155c9d79d9b3f4be321888b51f21d1bf04a75b
+2026-08-21-asar-fallback-nested-esm-imports.zh.md: 524adc943c0c80c1580624a38e4ed7c2a9c14b8b

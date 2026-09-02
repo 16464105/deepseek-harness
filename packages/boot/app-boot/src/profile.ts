@@ -367,9 +367,20 @@ interface ModuleProxyRecord {
   dsh?: { moduleFallback?: { targets?: unknown } }
 }
 
-/** Return whether the process reads application modules from pkg's virtual filesystem. */
-function isPackagedExecutable(): boolean {
+/**
+ * Whether `$DSH_HOME/profiles/node_modules` must materialize ESM proxies
+ * instead of OS symlinks for this installation.
+ *
+ * pkg's `/snapshot` and Electron's `app.asar` both expose package files only
+ * through a virtual filesystem. An OS symlink into either path leaves
+ * `existsSync` and some resolvers unable to see `package.json` when the
+ * looked-up path still names the symlink rather than a path that contains
+ * `.asar` or `/snapshot`.
+ * @param installAnchor - absolute package.json path of the running installation.
+ */
+function installationNeedsModuleProxies(installAnchor: string): boolean {
   return (process as NodeJS.Process & { pkg?: unknown }).pkg !== undefined
+    || installAnchor.includes('.asar')
 }
 
 /** Resolve one available explicit package export under Node ESM import conditions. */
@@ -450,10 +461,11 @@ function packageProxySource(
 }
 
 /**
- * Materialize a real package proxy whose exports retain pkg's virtual module
- * URL. Files outside the executable cannot traverse a symlink into
- * `/snapshot`, while an ESM re-export can import that URL and preserves the
- * executable's single module instance for out-of-tree plugin peers.
+ * Materialize a real package proxy whose exports retain the installation's
+ * virtual module URL. Files outside the executable cannot traverse a symlink
+ * into pkg's `/snapshot` or Electron's `app.asar`, while an ESM re-export can
+ * import that URL and preserves the executable's single module instance for
+ * out-of-tree plugin peers.
  */
 function ensureModuleProxy(
   link: string,
@@ -544,7 +556,7 @@ function resolveModuleFallbackEntries(
       queue.push({ anchor: manifestPath, manifest: readModuleFallbackManifest(manifestPath) })
     }
   }
-  const entries = !isPackagedExecutable()
+  const entries = !installationNeedsModuleProxies(installAnchor)
     ? [...links].map(([packageName, packageDir]) => ({ kind: 'symlink' as const, packageName, packageDir }))
     : [...links].flatMap(([packageName, packageDir]) => {
       const source = packageProxySource(packageName, packageDir)
@@ -591,12 +603,13 @@ export interface ProfileModuleFallbackOptions {
 /**
  * Maintain module fallbacks for one profile launch. The shared
  * `$DSH_HOME/profiles/node_modules` mirrors the dsh installation dependency
- * closure. Plain Node writes symlinks; a packaged executable writes ESM
- * proxies under a cross-process lock because operating-system links cannot
- * enter pkg's virtual filesystem. Missing packages carried only by selected
- * bundles are linked through a profile-owned directory into that profile's
- * `node_modules`; pnpm-managed entries remain authoritative, and another
- * profile's links cannot change its resolution.
+ * closure. Plain Node writes symlinks; a pkg snapshot or Electron `app.asar`
+ * installation writes ESM proxies under a cross-process lock because
+ * operating-system links cannot enter those virtual filesystems. Missing
+ * packages carried only by selected bundles are linked through a
+ * profile-owned directory into that profile's `node_modules`; pnpm-managed
+ * entries remain authoritative, and another profile's links cannot change
+ * its resolution.
  * @param options - installation anchor, optional loaded profile, and Harness home.
  * @returns settlement after the shared fallback and profile-local links are current.
  */

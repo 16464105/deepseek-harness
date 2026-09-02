@@ -72,13 +72,11 @@
 }
 
 /* The swim morph's curves poke slightly past the viewBox edges, so clipping
-   would slice the tail mid-wag. The hero mark stays in the same primary ink
-   as its headline. */
+   would slice the tail mid-wag. Path fill is brand blue on the mark itself. */
 .fish {
   display: block;
   overflow: visible;
   transform-origin: 50% 60%;
-  color: var(--dsw-alias-label-primary);
 }
 
 /* Hover swim: a slow continuous sway about the body center — the head

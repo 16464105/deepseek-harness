@@ -22,7 +22,7 @@ Status: implemented
 
 ## Consequences
 
-树外桌面插件可以导入安装闭包中的任何包，无需在 profile 本地再装一份。源码启动和未传入 `bareModuleBaseUrl` 的宿主不受影响。该 hook 是进程全局的，因此需要缺失 peer 的测试必须在安装 hook 之前运行，或使用安装目录也无法解析的名称。打包桌面仍然不解包 JavaScript 包。
+树外桌面插件可以导入安装闭包中的任何包，无需在 profile 本地再装一份。源码启动和未传入 `bareModuleBaseUrl` 的宿主不受影响。该 hook 是进程全局的，因此需要缺失 peer 的测试必须在安装 hook 之前运行，或使用安装目录也无法解析的名称。打包桌面仍然不解包 JavaScript 包。后续改动还会在安装锚点路径含 `app.asar` 时用 ESM 代理修复 `$DSH_HOME/profiles/node_modules`（[asar 模块回退代理](2026-09-02-asar-module-fallback-proxies.zh.md)），使花名册健康检查及其他沿符号链接路径的 `existsSync` 调用看到普通包目录；对父目录查找仍会错过的嵌套导入，该 hook 继续有效。
 
 ## Verification
 

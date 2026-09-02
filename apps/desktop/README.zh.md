@@ -49,7 +49,7 @@ npx --yes pnpm@11.7.0 run desktop:package:win
 npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop run package:win:nsis
 ```
 
-根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/web/public/favicon.svg` 生成各平台的应用图标。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep、node-pty helper 和 Win32 文件夹对话框 worker 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制，并排除仅适用于 Linux 的 Landlock 包。TypeScript 源码、类型声明、source map，以及包根目录的测试、文档和示例目录不会进入产物。
+根命令都会先完整构建仓库。Electron Builder 将产物写入 `apps/desktop/dist/`，并从 `apps/desktop/build/icon.svg` 生成各平台的应用图标（圆角白底上较小的品牌蓝鲸鱼，与透明 Web favicon 分开）。JavaScript 与运行时资源位于 `app.asar`；只有原生 addon、必需动态库、ripgrep、node-pty helper 和 Win32 文件夹对话框 worker 保留在 `app.asar.unpacked`。macOS 包只保留目标架构的 Sharp、Koffi、ripgrep、node-pty 和 native-addon 二进制，并排除仅适用于 Linux 的 Landlock 包。TypeScript 源码、类型声明、source map，以及包根目录的测试、文档和示例目录不会进入产物。
 
 桌面包是可执行部署根：其生产依赖会显式提供交付 profile 可达的每个必需 workspace peer；其可选依赖显式提供 pnpm 11 不会为 Electron Builder 传递安装的目标平台 Sharp、Koffi、ripgrep 与 native-addon 二进制。`pnpm run verify-runtime-closure` 会在发布前检查 workspace 闭包；分发前还必须检查打包应用是否包含所选平台二进制。
 
@@ -67,7 +67,7 @@ npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop run package:win:nsis
 
 ## 窗口与 Host 生命周期
 
-BrowserWindow 启用上下文隔离和 Chromium sandbox，关闭 Node 集成，将窗口内导航限制在应用 origin，并用系统浏览器打开普通外部 HTTP(S) 链接。单实例锁会在第二次启动时聚焦已有窗口。本地 Host 只在 `127.0.0.1` 上绑定临时端口，不授予 LAN 信任，关闭 client HMR 和用户 patch 监视，并在 Electron 退出前完成 dispose。
+BrowserWindow 启用上下文隔离和 Chromium sandbox，关闭 Node 集成，将窗口内导航限制在应用 origin，并用系统浏览器打开普通外部 HTTP(S) 链接。单实例锁会在第二次启动时聚焦已有窗口。本地 Host 只在 `127.0.0.1` 上绑定临时端口，不授予 LAN 信任，关闭 client HMR 和用户 patch 监视，并在 Electron 退出前完成 dispose。窗口加载 Connection 的已认证回环 URL，以便首次导航签发浏览器会话 cookie；进程不打印该 URL，也不打开系统浏览器。
 
 ## 已知限制
 

@@ -58,14 +58,14 @@ describe('ic_ds_ icon set', () => {
 })
 
 describe('FishLogo', () => {
-  it('renders the official whale path in currentColor at the 26.634:19.6 ratio', () => {
+  it('renders the official whale path in brand blue at the 26.634:19.6 ratio', () => {
     const { container } = render(<primitives.FishLogo />)
     const svg = container.querySelector('svg')!
     expect(svg.getAttribute('width')).toBe('24')
     expect(Number(svg.getAttribute('height'))).toBeCloseTo(17.66, 1)
     expect(svg.getAttribute('viewBox')).toBe('0 0 26.634 19.6')
     expect(container.querySelectorAll('path')).toHaveLength(1)
-    expect(container.innerHTML).toContain('currentColor')
+    expect(container.innerHTML).toContain(primitives.DEEPSEEK_BRAND_BLUE)
   })
 })
 

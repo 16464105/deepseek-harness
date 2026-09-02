@@ -49,7 +49,7 @@ npx --yes pnpm@11.7.0 run desktop:package:win
 npx --yes pnpm@11.7.0 --filter @deepseek-ai/dsh-desktop run package:win:nsis
 ```
 
-The root commands build the complete repository first. Electron Builder writes artifacts under `apps/desktop/dist/` and derives every platform's application icon from `apps/web/public/favicon.svg`. JavaScript and runtime assets live in `app.asar`; only native addons, required dynamic libraries, ripgrep, the node-pty helper, and the Win32 folder-dialog worker remain in `app.asar.unpacked`. macOS packages retain only the target architecture's Sharp, Koffi, ripgrep, node-pty, and native-addon binaries, and omit Linux-only Landlock packages. TypeScript sources, declarations, source maps, and package-root test, documentation, and example directories are excluded.
+The root commands build the complete repository first. Electron Builder writes artifacts under `apps/desktop/dist/` and derives every platform's application icon from `apps/desktop/build/icon.svg` (a smaller brand-blue whale on a rounded white plate, distinct from the transparent web favicon). JavaScript and runtime assets live in `app.asar`; only native addons, required dynamic libraries, ripgrep, the node-pty helper, and the Win32 folder-dialog worker remain in `app.asar.unpacked`. macOS packages retain only the target architecture's Sharp, Koffi, ripgrep, node-pty, and native-addon binaries, and omit Linux-only Landlock packages. TypeScript sources, declarations, source maps, and package-root test, documentation, and example directories are excluded.
 
 The desktop package is the executable deploy root: its production dependencies explicitly supply every required workspace peer reachable from the shipped profile, while its optional dependencies explicitly supply the target-platform Sharp, Koffi, ripgrep, and native-addon binaries that pnpm 11 does not install transitively for Electron Builder. `pnpm run verify-runtime-closure` checks the workspace closure before release; the packaged application must also be inspected for the selected platform binaries before distribution.
 
@@ -67,7 +67,7 @@ Run the workflow manually from GitHub Actions, or push a `desktop-v*` tag. Each 
 
 ## Window and Host lifecycle
 
-The BrowserWindow enables context isolation and the Chromium sandbox, disables Node integration, keeps in-window navigation on the application origin, and opens ordinary external HTTP(S) links in the system browser. A single-instance lock focuses the existing window on a second launch. The local Host binds only `127.0.0.1` on an ephemeral port, advertises no LAN trust, disables client HMR and user-patch watching, and is disposed before Electron exits.
+The BrowserWindow enables context isolation and the Chromium sandbox, disables Node integration, keeps in-window navigation on the application origin, and opens ordinary external HTTP(S) links in the system browser. A single-instance lock focuses the existing window on a second launch. The local Host binds only `127.0.0.1` on an ephemeral port, advertises no LAN trust, disables client HMR and user-patch watching, and is disposed before Electron exits. The window loads Connection's authenticated loopback URL so the first navigation can mint the browser-session cookie; the process does not print that URL or open the system browser.
 
 ## Known limitations
 

@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-02-brand-blue-system-icons.md
+2026-09-02-brand-blue-system-icons.md: ddf855faca54dd6bcbe6ec441fd8aff6ab709600
+2026-09-02-brand-blue-system-icons.zh.md: f80f42b249159dac13b2d00e6d9eda56d0646e73

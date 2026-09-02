@@ -1,11 +1,13 @@
 // DeepSeek official whale glyph, lifted from deepseek.com wordmark SVG
 // (clipPath rect 26.634 × 19.6 at translate 0.163086,1.75). Same shape as the
 // previous Figma-extract FishLogo, but the path is the live production vector:
-// exact-coordinate canonical source, not a raster rebuild. Ink rides
-// currentColor so hero and sidebar CSS continue to theme the mark with the
-// primary label ink; the wordmark copies the same path.
+// exact-coordinate canonical source, not a raster rebuild. Fill is brand blue
+// so sidebar, hero, favicon, and Electron icons share one mark color.
 
 import type { IconProps } from './icons/props.ts'
+
+/** DeepSeek brand blue for the whale mark across system and in-app chrome. */
+export const DEEPSEEK_BRAND_BLUE = '#4D6BFE'
 
 /** Native viewBox of {@link FISH_LOGO_PATH} (width and height in user units). */
 export const FISH_LOGO_VIEWBOX = { width: 26.634, height: 19.6 }
@@ -31,7 +33,7 @@ export function FishLogo({ size = 24, className }: IconProps) {
     >
       <path
         d={FISH_LOGO_PATH}
-        fill="currentColor"
+        fill={DEEPSEEK_BRAND_BLUE}
       />
     </svg>
   )

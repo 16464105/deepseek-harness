@@ -22,7 +22,7 @@ A packaged desktop Host loads an out-of-tree profile plugin from `$DSH_HOME/prof
 
 ## Consequences
 
-An out-of-tree desktop plugin can import any package in the installation closure without a profile-local copy. Source launches and hosts that omit `bareModuleBaseUrl` are unchanged. The hook is process-global, so tests that need a missing peer must run before it is installed or use a name the installation cannot resolve. Packaged desktop still does not unpack JavaScript packages.
+An out-of-tree desktop plugin can import any package in the installation closure without a profile-local copy. Source launches and hosts that omit `bareModuleBaseUrl` are unchanged. The hook is process-global, so tests that need a missing peer must run before it is installed or use a name the installation cannot resolve. Packaged desktop still does not unpack JavaScript packages. A later change also heals `$DSH_HOME/profiles/node_modules` with ESM proxies when the install anchor names an `app.asar` path ([asar module fallback proxies](2026-09-02-asar-module-fallback-proxies.md)), so roster health and other symlink-path `existsSync` callers see ordinary package directories; the hook remains for nested imports that still miss through the parent walk.
 
 ## Verification
 

@@ -22,6 +22,12 @@ describe('desktop profile bundle', () => {
       .map(row => [row.id, row]))
 
     expect(rows.get('webserver')?.config).toEqual({ host: '127.0.0.1', port: 0 })
+    expect(rows.get('web-runtime')?.config).toMatchObject({
+      printUrl: false,
+      openBrowser: false,
+      surfaceContext: false,
+      trustedHosts: [],
+    })
     expect(rows.get('agent-default-model')?.config).toEqual({
       provider: 'tencent-internal',
       model: 'gpt-5.6-sol',
