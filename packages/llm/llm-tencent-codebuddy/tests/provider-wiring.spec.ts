@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import type { PiAiAdapterOptions, ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
@@ -79,6 +81,11 @@ beforeEach(() => {
 })
 
 describe('Tencent provider wiring', () => {
+  it('imports pi-ai helpers from the published package root', () => {
+    const source = readFileSync(fileURLToPath(new URL('../src/index.ts', import.meta.url)), 'utf8')
+    expect(source).not.toMatch(/@deepseek-ai\/dsh-llm-pi-ai\/src\//)
+  })
+
   it('resolves the fixed catalog and refreshes dynamic provider facts without re-registering', async () => {
     const { ctx, replace } = providerContext()
     const initial: Config = {

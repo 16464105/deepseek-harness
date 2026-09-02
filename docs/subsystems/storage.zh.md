@@ -107,7 +107,7 @@ interface Domain<S extends DomainSpec> {
 
 ## 领域 facility：`ctx.storageDomain`
 
-`DomainFacility`（[签名](#ctxstoragedomain--domainfacility)）在经过路由的后端之上打开已声明的领域。路由是领域插件的配置，绝不属于枢纽：`backend` 指定必填的默认路由，`routes` 按领域名逐个覆盖。`open(spec)` 按严格顺序执行，每一步失败都使整个调用失败：拒绝已打开或仍在关闭中的名称（`already-open`），解析路由（`backend-not-found`），要求后端具备 `kv` facet（`facet-unsupported`），打开 unit（后端的 `version-mismatch`/`malformed-medium` 原样透传），并按 spec 的 zod schema 校验每条已存储记录和 global（`invalid-record`，附带出错的表与键）。调用方拥有返回的句柄，并用 `Domain.close()` 释放它；插件卸载时仍处于打开状态的领域由 facility 负责关闭，已关闭领域的名称只有在拆除完全结束后才释放出来供重新打开。`get(name)` 是无类型的诊断查找，命中的是每个类型化句柄背后包内私有的 `DomainImpl` 运行时；`closeAll()` 是卸载路径。
+`DomainFacility`（[签名](#ctxstoragedomain--domainfacility)）在经过路由的后端之上打开已声明的领域。路由是领域插件的配置，绝不属于枢纽：`backend` 指定必填的默认路由，`routes` 按领域名逐个覆盖。`open(spec)` 按严格顺序执行，每一步失败都使整个调用失败：拒绝已打开或仍在关闭中的名称（`already-open`），解析路由（`backend-not-found`），要求后端具备 `kv` facet（`facet-unsupported`），并打开 unit（后端的 `version-mismatch`/`malformed-medium` 原样透传）。随后按 spec 的 zod schema 校验已存值：`single` 布局的记录或任何 global 不符合时拒绝打开（`invalid-record`，附带出错的表与键）；`per-record` 表行不符合时被省略并记一条警告，因此单份过期文档不能拒绝整个领域。调用方拥有返回的句柄，并用 `Domain.close()` 释放它；插件卸载时仍处于打开状态的领域由 facility 负责关闭，已关闭领域的名称只有在拆除完全结束后才释放出来供重新打开。`get(name)` 是无类型的诊断查找，命中的是每个类型化句柄背后包内私有的 `DomainImpl` 运行时；`closeAll()` 是卸载路径。
 
 ## 变更事件：`domain/changed`
 
@@ -179,8 +179,12 @@ The mounted domain facility. Opens declared domains over routed backends; one fa
  * (`backend-not-found` passes through from the hub); require its `kv` facet
  * (`facet-unsupported`); open the unit projected from the spec (backend
  * `version-mismatch`/`malformed-medium` pass through); load and validate
- * every stored record against the spec's zod schemas (`invalid-record`
- * with the offending table and key); construct the domain.
+ * every stored record against the spec's zod schemas; construct the domain.
+ * A `single`-layout record or any global that fails its schema rejects the
+ * open (`invalid-record` with the offending table and key). A `per-record`
+ * table row that fails its schema is omitted and warned, so one stale
+ * document cannot refuse the domain — the same discard the json backend
+ * already applies to a malformed or differently versioned file.
  *
  * Lifecycle: the CALLER owns the returned handle and closes it via
  * `Domain.close()` (typically as its own `ctx.effect` disposer) — the

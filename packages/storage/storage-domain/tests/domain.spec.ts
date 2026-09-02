@@ -139,6 +139,50 @@ describe('DomainFacility.open', () => {
     })
   })
 
+  it('discards a schema-invalid per-record row and keeps the rest of the domain', async () => {
+    const perSpec = defineDomain({
+      name: 'percache',
+      version: 1,
+      layout: 'per-record',
+      tables: { items: domainTable<string, Item>(itemSchema) },
+    })
+    const pool = new MemoryMediaPool()
+    pool.versions.set('percache', 1)
+    pool.media.set('percache', {
+      tables: new Map([['items', new Map<string, unknown>([
+        ['good', { label: 'ok', count: 1 }],
+        ['bad', { label: 'x', count: 'NaN' }],
+      ])]]),
+      global: null,
+    })
+    const { ctx, facility } = await harness({ pool })
+    const warn = vi.spyOn(ctx.logger, 'warn')
+    const domain = await facility.open(perSpec)
+    expect(domain.table('items').get('good')).toEqual({ label: 'ok', count: 1 })
+    expect(domain.table('items').get('bad')).toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(
+      "domain 'percache': discarding stored record 'bad' in table 'items' that does not match its schema",
+    )
+  })
+
+  it('still rejects a schema-invalid global on a per-record domain', async () => {
+    const perSpec = defineDomain({
+      name: 'perglobal',
+      version: 1,
+      layout: 'per-record',
+      global: { schema: settingsSchema, initial: { theme: 'plain' } },
+      tables: { items: domainTable<string, Item>(itemSchema) },
+    })
+    const pool = new MemoryMediaPool()
+    pool.versions.set('perglobal', 1)
+    pool.media.set('perglobal', { tables: new Map(), global: { theme: 42 } })
+    const { facility } = await harness({ pool })
+    await expect(facility.open(perSpec)).rejects.toMatchObject({
+      code: 'invalid-record',
+      detail: { table: '', key: '' },
+    })
+  })
+
   it('rejects a stored global that fails its schema with the global marker', async () => {
     const pool = new MemoryMediaPool()
     pool.versions.set('demo', 1)

@@ -87,8 +87,12 @@ export class DomainFacility {
    * (`backend-not-found` passes through from the hub); require its `kv` facet
    * (`facet-unsupported`); open the unit projected from the spec (backend
    * `version-mismatch`/`malformed-medium` pass through); load and validate
-   * every stored record against the spec's zod schemas (`invalid-record`
-   * with the offending table and key); construct the domain.
+   * every stored record against the spec's zod schemas; construct the domain.
+   * A `single`-layout record or any global that fails its schema rejects the
+   * open (`invalid-record` with the offending table and key). A `per-record`
+   * table row that fails its schema is omitted and warned, so one stale
+   * document cannot refuse the domain — the same discard the json backend
+   * already applies to a malformed or differently versioned file.
    *
    * Lifecycle: the CALLER owns the returned handle and closes it via
    * `Domain.close()` (typically as its own `ctx.effect` disposer) — the
@@ -118,7 +122,17 @@ export class DomainFacility {
         for (const [table, tableSpec] of Object.entries(spec.tables)) {
           const records = new Map<string, unknown>()
           for (const [key, raw] of Object.entries(snapshot.tables[table] ?? {})) {
-            records.set(key, parseRecord(spec.name, table, key, () => tableSpec.valueSchema.parse(raw)))
+            try {
+              records.set(key, parseRecord(spec.name, table, key, () => tableSpec.valueSchema.parse(raw)))
+            } catch (error) {
+              if (spec.layout === 'per-record' && isInvalidRecord(error)) {
+                this.ctx.logger.warn(
+                  `domain '${spec.name}': discarding stored record '${key}' in table '${table}' that does not match its schema`,
+                )
+                continue
+              }
+              throw error
+            }
           }
           tables.set(table, records)
         }
@@ -175,6 +189,11 @@ export class DomainFacility {
   async closeAll(): Promise<void> {
     await Promise.all([...this.domains.values()].map(domain => domain.close()))
   }
+}
+
+/** Whether an open-time failure is a schema-invalid stored value. */
+function isInvalidRecord(error: unknown): error is DomainError {
+  return error instanceof DomainError && error.code === 'invalid-record'
 }
 
 /** Run one zod parse, translating failure to `invalid-record` with its location. */

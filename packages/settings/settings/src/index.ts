@@ -35,7 +35,14 @@ type SettingsNamespaceInput<Value extends string> = Value extends SettingsNamesp
       ? ValidNamespaceTail<Rest> extends true ? Value : never
       : never
 
-function parseSettingsNamespace(value: string): SettingsNamespace {
+/**
+ * Brand a raw string as a {@link SettingsNamespace} after the same lowercase
+ * hyphenated check `register` applies to a dynamic argument.
+ * @param value - candidate namespace; lowercase kebab-case, as in plugin short names.
+ * @returns the branded namespace.
+ * @throws {TypeError} when `value` is not a lowercase hyphenated identifier.
+ */
+export function settingsNamespace(value: string): SettingsNamespace {
   if (!NAMESPACE_PATTERN.test(value)) {
     throw new TypeError(`settings namespace "${value}" must match ${String(NAMESPACE_PATTERN)}`)
   }
@@ -421,7 +428,7 @@ export abstract class SettingsProvider extends Service {
     schema: z<T>,
     options?: SettingsRegisterOptions<T>,
   ): SettingsScope<T> {
-    const parsedNs = parseSettingsNamespace(ns)
+    const parsedNs = settingsNamespace(ns)
     if (this.registrations.has(parsedNs)) {
       throw new Error(`settings namespace "${parsedNs}" is already registered`)
     }
@@ -544,7 +551,7 @@ export abstract class SettingsProvider extends Service {
    * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
   get<const Namespace extends string>(ns: Namespace & SettingsNamespaceInput<Namespace>): unknown {
-    return this.registrations.get(parseSettingsNamespace(ns))?.resolved
+    return this.registrations.get(settingsNamespace(ns))?.resolved
   }
 
   /**
@@ -564,7 +571,7 @@ export abstract class SettingsProvider extends Service {
     patch: object,
     expectedRevision?: number,
   ): Promise<void> {
-    return this.write(parseSettingsNamespace(ns), patch, 'merge', expectedRevision)
+    return this.write(settingsNamespace(ns), patch, 'merge', expectedRevision)
   }
 
   /**
@@ -583,7 +590,7 @@ export abstract class SettingsProvider extends Service {
     section: object,
     expectedRevision?: number,
   ): Promise<void> {
-    return this.write(parseSettingsNamespace(ns), section, 'replace', expectedRevision)
+    return this.write(settingsNamespace(ns), section, 'replace', expectedRevision)
   }
 
   /**
@@ -604,7 +611,7 @@ export abstract class SettingsProvider extends Service {
     ops: readonly SettingsPathOp[],
     expectedRevision?: number,
   ): Promise<void> {
-    const parsedNs = parseSettingsNamespace(ns)
+    const parsedNs = settingsNamespace(ns)
     if (!Array.isArray(ops)) throw new TypeError(`settings mutate for "${parsedNs}" must be an array of path ops`)
     for (const op of ops) {
       if (!isPlainObject(op) || (op['op'] !== 'set' && op['op'] !== 'unset')) {

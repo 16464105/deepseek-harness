@@ -18,9 +18,14 @@ import {
   RetryPolicySchema,
   type RetryPolicyConfig,
 } from '@deepseek-ai/dsh-llm'
-import { PiAiAdapter, type PiAiModelProfile, type ResolvedPiAiProviderProfile } from '@deepseek-ai/dsh-llm-pi-ai'
-import { resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai/src/config.ts'
-import { authContextFrom, credentialStoreFrom } from '@deepseek-ai/dsh-llm-pi-ai/src/auth.ts'
+import {
+  authContextFrom,
+  credentialStoreFrom,
+  PiAiAdapter,
+  resolveProfiles,
+  type PiAiModelProfile,
+  type ResolvedPiAiProviderProfile,
+} from '@deepseek-ai/dsh-llm-pi-ai'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { TENCENT_CODEBUDDY_MODELS } from './catalog.ts'

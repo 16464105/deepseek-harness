@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { SettingsProvider, SettingsConflictError, type SettingsNamespace, type SettingsScope, type SettingsUpdateSource } from '../src/index.ts'
+import { SettingsProvider, SettingsConflictError, settingsNamespace, type SettingsNamespace, type SettingsScope, type SettingsUpdateSource } from '../src/index.ts'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { MemorySettings } from './memory.ts'
 
@@ -80,6 +80,11 @@ describe('settings namespace validation', () => {
   it.each(['', 'UI', '9lives', 'a_b', '-lead'])('rejects %j at the service', async (value) => {
     const { ctx } = await boot()
     expect(() => ctx.settings.register(value, ThemeSchema)).toThrow(TypeError)
+  })
+
+  it('brands a valid dynamic namespace and rejects the same invalid names', () => {
+    expect(settingsNamespace('dsh-better-sidebar')).toBe('dsh-better-sidebar')
+    expect(() => settingsNamespace('UI')).toThrow(TypeError)
   })
 })
 
@@ -715,6 +720,8 @@ describe('SettingsProvider.installSection', () => {
         onChange: () => {
           changes += 1
         },
+        // Forwards the optional owner check the same way `register` does.
+        validate: () => {},
       })
     })
     // No settings service mounted: nothing ran, the entry stays authoritative.

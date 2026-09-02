@@ -55,7 +55,7 @@ const theme = scope.get()              // deep-frozen resolved snapshot
 scope.update({ density: 'compact' })   // merges into the user section and persists
 ```
 
-TypeScript 会按小写字母、数字与连字符文法检查字面量 namespace 参数；运行时动态传入的字符串接受相同校验。`ctx.settings.installSection(owner, ns, schema, entry, hooks)` 为消费方插件封装可选服务接线：只要设置服务存在，它就用插件的组合配置作为 `base` 注册 namespace；服务消失时插件回退到组合配置，行为与原先完全一致。
+TypeScript 会按小写字母、数字与连字符文法检查字面量 namespace 参数；运行时动态传入的字符串接受相同校验。对动态字符串先调用 `settingsNamespace(value)` 再传给 `register` 或其他接受 namespace 的 API。`ctx.settings.installSection(owner, ns, schema, entry, hooks)` 为消费方插件封装可选服务接线：只要设置服务存在，它就用插件的组合配置作为 `base` 注册 namespace；服务消失时插件回退到组合配置，行为与原先完全一致。
 
 ### 读取与观察值
 

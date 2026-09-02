@@ -107,7 +107,7 @@ Reads are synchronous from authoritative in-memory state: `KvTable` exposes `get
 
 ## The domain facility: `ctx.storageDomain`
 
-`DomainFacility` ([signatures](#ctxstoragedomain--domainfacility)) opens declared domains over routed backends. Routing is the domain plugin's configuration, never the hub's: `backend` names the required default route and `routes` overrides it per domain name. `open(spec)` runs a strict sequence, each step failing the whole call: it rejects a name already open or still closing (`already-open`), resolves the route (`backend-not-found`), requires the backend's `kv` facet (`facet-unsupported`), opens the unit (backend `version-mismatch`/`malformed-medium` pass through), and validates every stored record and global against the spec's zod schemas (`invalid-record` with the offending table and key). The caller owns the returned handle and releases it with `Domain.close()`; domains still open when the plugin unmounts are closed by the facility, and a closed domain's name frees for reopening only after teardown fully completes. `get(name)` is an untyped diagnostic lookup onto the package-private `DomainImpl` runtime behind every typed handle; `closeAll()` is the unmount path.
+`DomainFacility` ([signatures](#ctxstoragedomain--domainfacility)) opens declared domains over routed backends. Routing is the domain plugin's configuration, never the hub's: `backend` names the required default route and `routes` overrides it per domain name. `open(spec)` runs a strict sequence, each step failing the whole call: it rejects a name already open or still closing (`already-open`), resolves the route (`backend-not-found`), requires the backend's `kv` facet (`facet-unsupported`), and opens the unit (backend `version-mismatch`/`malformed-medium` pass through). It then validates stored values against the spec's zod schemas: a `single`-layout record or any global that fails rejects the open (`invalid-record` with the offending table and key); a `per-record` table row that fails is omitted and warned, so one stale document cannot refuse the domain. The caller owns the returned handle and releases it with `Domain.close()`; domains still open when the plugin unmounts are closed by the facility, and a closed domain's name frees for reopening only after teardown fully completes. `get(name)` is an untyped diagnostic lookup onto the package-private `DomainImpl` runtime behind every typed handle; `closeAll()` is the unmount path.
 
 ## The change event: `domain/changed`
 
@@ -179,8 +179,12 @@ The mounted domain facility. Opens declared domains over routed backends; one fa
  * (`backend-not-found` passes through from the hub); require its `kv` facet
  * (`facet-unsupported`); open the unit projected from the spec (backend
  * `version-mismatch`/`malformed-medium` pass through); load and validate
- * every stored record against the spec's zod schemas (`invalid-record`
- * with the offending table and key); construct the domain.
+ * every stored record against the spec's zod schemas; construct the domain.
+ * A `single`-layout record or any global that fails its schema rejects the
+ * open (`invalid-record` with the offending table and key). A `per-record`
+ * table row that fails its schema is omitted and warned, so one stale
+ * document cannot refuse the domain — the same discard the json backend
+ * already applies to a malformed or differently versioned file.
  *
  * Lifecycle: the CALLER owns the returned handle and closes it via
  * `Domain.close()` (typically as its own `ctx.effect` disposer) — the

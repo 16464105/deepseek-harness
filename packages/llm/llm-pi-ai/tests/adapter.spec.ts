@@ -431,9 +431,8 @@ describe('PiAiAdapter provider routing', () => {
 })
 
 describe('provider profile lifecycle', () => {
-  it('keeps adapter helpers off the package root', () => {
+  it('keeps wire helpers off the package root', () => {
     for (const helper of [
-      'resolveProfiles',
       'toPiContext',
       'toPiReplayState',
       'toPiAssistant',
@@ -812,6 +811,12 @@ describe('provider profile lifecycle', () => {
     if (second.finish.kind !== 'error') throw new Error('expected an error finish')
     expect(second.finish.failure.message).toMatch(/provider route "deepseek".*PI_CUSTOM_REF_KEY/s)
     expect(server.requests).toHaveLength(0)
+  })
+
+  it('re-exports profile resolution and auth helpers from the package root', () => {
+    expect(LlmPiAi.resolveProfiles).toBe(resolveProfiles)
+    expect(typeof LlmPiAi.authContextFrom).toBe('function')
+    expect(typeof LlmPiAi.credentialStoreFrom).toBe('function')
   })
 
   it('validates empty, underspecified, legacy-shaped, and explicitly blank profiles', () => {
