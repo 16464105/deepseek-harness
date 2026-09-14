@@ -14,6 +14,7 @@ describe('desktop profile bundle', () => {
       'attachment-local',
       'llm-deepseek',
       'agent-default-model',
+      'ui-settings-models',
     ].map(id => ({ id, name: `test-${id}` }))
     const rows = new Map(composeEntries([
       [{ insert: baseRows }],
@@ -36,6 +37,8 @@ describe('desktop profile bundle', () => {
     // The deployment raises the per-side image bound through composition
     // rather than a patched package default.
     expect(rows.get('attachment-local')?.config).toEqual({ maxImageDimension: 16_384 })
+    // A first-run user is onboarded into this deployment's own route.
+    expect(rows.get('ui-settings-models')?.config).toEqual({ preferredProvider: 'tencent-internal' })
     expect(rows.get('llm-deepseek')?.disabled).not.toBe(true)
     expect(rows.get('llm-tencent-codebuddy')?.name).toBe('@deepseek-ai/dsh-llm-tencent-codebuddy')
     // Upstream's base and web-app bundles carry no browser or MCP row, so this
