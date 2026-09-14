@@ -72,7 +72,22 @@ export const inject = [
  * pushed invalidation (settings, credentials, or provider topology).
  * @param ctx - client root context.
  */
-export function apply(ctx: ClientContext): void {
+/** Plugin config: which route a first-run user is onboarded into. */
+export interface Config {
+  /**
+   * Provider route the onboarding step offers when no provider can serve
+   * requests. A deployment whose supported provider is not the official one
+   * names its own route here; the step then reads that route's credential row
+   * and shows its copy.
+   */
+  preferredProvider?: string
+}
+
+/** Default onboarding target: the official DeepSeek route. */
+export const DEFAULT_PREFERRED_PROVIDER = 'deepseek-official'
+
+export function apply(ctx: ClientContext, config: Config = {}): void {
+  const preferredProvider = config.preferredProvider ?? DEFAULT_PREFERRED_PROVIDER
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-models: copy dictionaries')
 
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
@@ -96,6 +111,7 @@ export function apply(ctx: ClientContext): void {
     operations,
     schema,
     t,
+    preferredProvider,
   })
   // The scope's own memory mode is what keeps a remote browser process-local,
   // so the store needs no isLoopback branch of its own.

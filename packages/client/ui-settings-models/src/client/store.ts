@@ -275,12 +275,8 @@ export type OnboardingReadiness =
   | { kind: 'provider-ready' }
   | {
     kind: 'credential-missing'
-    /** Provider route the missing credential belongs to. */
+    /** Provider route whose credential is missing. */
     provider: string
-    /** Settings namespace that stores the credential reference. */
-    settingsNs: string
-    /** Path inside the namespace document. */
-    settingsPath: readonly string[]
   }
   | {
     kind: 'unavailable'
@@ -302,7 +298,10 @@ export type OnboardingReadiness =
  * @param state - current shared Models join snapshot.
  * @returns the onboarding state without reading a parallel fact source.
  */
-export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadiness {
+export function onboardingReadiness(
+  state: ModelsSettingsState,
+  preferredProvider: string,
+): OnboardingReadiness {
   if ((state.status === 'idle' || state.status === 'loading') && state.rows.length === 0) {
     return { kind: 'loading' }
   }
@@ -313,10 +312,10 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
+  // A row with no settings namespace has no credential seat to write into, so
+  // it is not an onboarding target: the adapter is absent for this deployment.
   const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+    candidate.entry.provider === preferredProvider && candidate.entry.settingsNs !== '')
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {
@@ -347,7 +346,5 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
   return {
     kind: 'credential-missing',
     provider: row.entry.provider,
-    settingsNs: row.entry.settingsNs,
-    settingsPath: row.entry.settingsPath,
   }
 }

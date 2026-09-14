@@ -6,6 +6,9 @@ import { onboardingReadiness, providerUsable } from '../src/client/store.ts'
 
 const missingCredential: CredentialInfo = { configured: false, writable: true }
 
+/** The onboarding target these cases exercise: the plugin's own default. */
+const PREFERRED = 'deepseek-official'
+
 function row(overrides: Partial<ProviderRow> = {}): ProviderRow {
   return {
     entry: {
@@ -68,9 +71,9 @@ describe('providerUsable', () => {
 
 describe('onboardingReadiness', () => {
   it('waits for the first join and skips onboarding when the adapter directory entry is absent', () => {
-    expect(onboardingReadiness(state({ status: 'idle', rows: [] }))).toEqual({ kind: 'loading' })
-    expect(onboardingReadiness(state({ status: 'loading', rows: [] }))).toEqual({ kind: 'loading' })
-    expect(onboardingReadiness(state({ rows: [] }))).toEqual({ kind: 'adapter-absent' })
+    expect(onboardingReadiness(state({ status: 'idle', rows: [] }), PREFERRED)).toEqual({ kind: 'loading' })
+    expect(onboardingReadiness(state({ status: 'loading', rows: [] }), PREFERRED)).toEqual({ kind: 'loading' })
+    expect(onboardingReadiness(state({ rows: [] }), PREFERRED)).toEqual({ kind: 'adapter-absent' })
     expect(onboardingReadiness(state({
       rows: [row({
         entry: {
@@ -78,51 +81,51 @@ describe('onboardingReadiness', () => {
           settingsNs: '',
         },
       })],
-    }))).toEqual({ kind: 'adapter-absent' })
+    }), PREFERRED)).toEqual({ kind: 'adapter-absent' })
   })
 
   it('reports a missing writable effective credential', () => {
-    expect(onboardingReadiness(state())).toMatchObject({ kind: 'credential-missing' })
+    expect(onboardingReadiness(state(), PREFERRED)).toMatchObject({ kind: 'credential-missing' })
   })
 
   it('ends onboarding once any other registered provider can serve requests', () => {
-    expect(onboardingReadiness(state({ rows: [row(), otherRow()] }))).toEqual({ kind: 'provider-ready' })
+    expect(onboardingReadiness(state({ rows: [row(), otherRow()] }), PREFERRED)).toEqual({ kind: 'provider-ready' })
     // A provider the user cannot reach yet leaves the prompt in place.
     expect(onboardingReadiness(state({
       rows: [row(), otherRow({ credential: missingCredential })],
-    }))).toMatchObject({ kind: 'credential-missing' })
+    }), PREFERRED)).toMatchObject({ kind: 'credential-missing' })
   })
 
   it('accepts file and process-environment credentials without prompting', () => {
     expect(onboardingReadiness(state({
       rows: [row({ credential: { configured: true, source: 'file', writable: true } })],
-    }))).toEqual({ kind: 'provider-ready' })
+    }), PREFERRED)).toEqual({ kind: 'provider-ready' })
     expect(onboardingReadiness(state({
       rows: [row({ credential: { configured: true, source: 'env', writable: false } })],
-    }))).toEqual({ kind: 'provider-ready' })
+    }), PREFERRED)).toEqual({ kind: 'provider-ready' })
   })
 
   it('turns missing capabilities into diagnostics that never block the product', () => {
-    expect(onboardingReadiness(state({ status: 'error', error: 'settings down' }))).toEqual({
+    expect(onboardingReadiness(state({ status: 'error', error: 'settings down' }), PREFERRED)).toEqual({
       kind: 'unavailable',
       reason: 'load-failed',
     })
     expect(onboardingReadiness(state({
       rows: [row({ entry: { ...row().entry, active: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'provider-inactive' })
+    }), PREFERRED)).toEqual({ kind: 'unavailable', reason: 'provider-inactive' })
     expect(onboardingReadiness(state({
       credentialError: 'credentials service is absent',
-    }))).toEqual({
+    }), PREFERRED)).toEqual({
       kind: 'unavailable',
       reason: 'credentials-unavailable',
     })
     expect(onboardingReadiness(state({
       rows: [row({ credential: undefined })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credentials-unavailable' })
+    }), PREFERRED)).toEqual({ kind: 'unavailable', reason: 'credentials-unavailable' })
     expect(onboardingReadiness(state({
       rows: [row({ credential: { configured: false, writable: false } })],
-    }))).toEqual({ kind: 'unavailable', reason: 'credential-read-only' })
-    expect(onboardingReadiness(state({ writable: false }))).toEqual({
+    }), PREFERRED)).toEqual({ kind: 'unavailable', reason: 'credential-read-only' })
+    expect(onboardingReadiness(state({ writable: false }), PREFERRED)).toEqual({
       kind: 'unavailable',
       reason: 'settings-read-only',
     })

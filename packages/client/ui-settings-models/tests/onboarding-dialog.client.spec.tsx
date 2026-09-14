@@ -155,6 +155,7 @@ function harness(options: {
     operations,
     schema: settingsSchema,
     t: key => en[key],
+    preferredProvider: 'deepseek-official',
   }
   return {
     controller, complete, openSection, props, mutate, set,

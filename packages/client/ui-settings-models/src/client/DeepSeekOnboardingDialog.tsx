@@ -34,6 +34,12 @@ export interface DeepSeekOnboardingInjected {
   schema: SettingsSchemaOperations
   /** Feature copy. */
   t: (key: keyof typeof en) => string
+  /**
+   * Route this deployment onboards a first-run user into. Readiness and the
+   * copy both follow it, so a deployment whose supported provider is not the
+   * official one offers its own key field first.
+   */
+  preferredProvider: string
 }
 
 /** Slot owner props plus the feature's injected dependencies. */
@@ -45,14 +51,22 @@ function assertNever(_value: never): never {
   throw new Error('unexpected provider onboarding state')
 }
 
-/** Copy keys selected by the provider target. */
+/**
+ * Copy keys per onboarded route. A deployment onboarding into its own provider
+ * adds that provider's pair to this table and to the dictionaries; an
+ * unlisted route falls back to the generic pair.
+ */
+const PROVIDER_COPY: Readonly<Record<string, { title: keyof typeof en; description: keyof typeof en }>> = {
+  'tencent-internal': { title: 'onboardingTencentTitle', description: 'onboardingTencentDescription' },
+}
+
+/** Copy keys for the provider being onboarded. */
 function providerCopy(provider: string): {
   title: keyof typeof en
   description: keyof typeof en
 } {
-  return provider === 'tencent-internal'
-    ? { title: 'onboardingTencentTitle', description: 'onboardingTencentDescription' }
-    : { title: 'onboardingTitle', description: 'onboardingDescription' }
+  return PROVIDER_COPY[provider]
+    ?? { title: 'onboardingTitle', description: 'onboardingDescription' }
 }
 
 /**
@@ -62,9 +76,9 @@ function providerCopy(provider: string): {
  * @returns the onboarding modal or null when onboarding needs no intervention.
  */
 export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): ReactNode {
-  const { complete, controller, useModels, operations, schema, t } = props
+  const { complete, controller, useModels, operations, schema, t, preferredProvider } = props
   const state = useModels(snapshot => snapshot)
-  const readiness = onboardingReadiness(state)
+  const readiness = onboardingReadiness(state, preferredProvider)
 
   useEffect(() => {
     if (state.status === 'idle') void controller.load()
@@ -91,12 +105,9 @@ export function DeepSeekOnboardingDialog(props: DeepSeekOnboardingDialogProps): 
       return assertNever(readiness)
   }
 
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === readiness.provider
-    && candidate.entry.settingsNs === readiness.settingsNs
-    && candidate.entry.settingsPath.length === readiness.settingsPath.length
-    && candidate.entry.settingsPath.every((part, index) => part === readiness.settingsPath[index]))
-  const namespace = state.namespaces.get(readiness.settingsNs)
+  // Readiness derived this exact row, so the join repeats its predicate.
+  const row = state.rows.find(candidate => candidate.entry.provider === readiness.provider)
+  const namespace = row === undefined ? undefined : state.namespaces.get(row.entry.settingsNs)
   /* v8 ignore next 2 -- credential-missing is derived only from this exact joined row. */
   if (row === undefined || namespace === undefined) return null
 
