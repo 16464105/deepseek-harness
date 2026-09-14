@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type {
   McpServerDraft, McpServerSnapshot,
-} from '@deepseek-ai/dsh-api-remotes/client'
+} from '@deepseek-ai/dsh-mcp-manager/types'
 import type {} from '../src/client/index.ts'
 import { McpSettingsSection, type McpSettingsProps } from '../src/client/McpSettingsSection.tsx'
 import { parseMcpJson } from '../src/client/json-import.ts'

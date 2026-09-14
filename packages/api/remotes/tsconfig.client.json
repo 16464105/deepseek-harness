@@ -15,10 +15,16 @@
       "path": "../../../vendor/cordis"
     },
     {
+      "path": "../gateway/tsconfig.client.json"
+    },
+    {
       "path": "../../client/connection/tsconfig.client.json"
     },
     {
       "path": "../../client/file-upload/tsconfig.client.json"
+    },
+    {
+      "path": "../../credentials/credentials"
     },
     {
       "path": "../../context/file-reference"
@@ -27,19 +33,13 @@
       "path": "../../context/session-reference"
     },
     {
-      "path": "../../credentials/credentials"
-    },
-    {
       "path": "../../extensions/cordis-host-runner"
     },
     {
-      "path": "../../feedback/command-feedback"
+      "path": "../../goal/goal"
     },
     {
       "path": "../../feedback/message-feedback"
-    },
-    {
-      "path": "../../goal/goal"
     },
     {
       "path": "../../host/plugin-inventory"
@@ -48,16 +48,7 @@
       "path": "../../interaction/commands"
     },
     {
-      "path": "../../interaction/user-approval"
-    },
-    {
-      "path": "../../interaction/user-questions"
-    },
-    {
       "path": "../../llm/llm"
-    },
-    {
-      "path": "../../mcp/mcp-manager"
     },
     {
       "path": "../../preset/agent-presets"
@@ -69,13 +60,16 @@
       "path": "../../subagent/subagent"
     },
     {
-      "path": "../../typert/protocol"
+      "path": "../../interaction/user-approval"
     },
     {
-      "path": "../gateway/tsconfig.client.json"
+      "path": "../../interaction/user-questions"
     },
     {
       "path": "../session-controller/tsconfig.client.json"
+    },
+    {
+      "path": "../workspace-files/tsconfig.client.json"
     },
     {
       "path": "../settings-controller"
@@ -84,7 +78,10 @@
       "path": "../workspace-controller/tsconfig.client.json"
     },
     {
-      "path": "../workspace-files/tsconfig.client.json"
+      "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../feedback/command-feedback"
     }
   ]
 }

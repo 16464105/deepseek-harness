@@ -6,7 +6,7 @@
  * a `command` selects stdio, and headers/env maps split into drafts.
  */
 
-import type { McpServerDraft } from '@deepseek-ai/dsh-api-remotes/client'
+import type { McpServerDraft } from '@deepseek-ai/dsh-mcp-manager/types'
 
 /** One raw standard entry. */
 interface StandardEntry {

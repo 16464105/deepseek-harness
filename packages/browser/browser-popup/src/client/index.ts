@@ -8,8 +8,8 @@
 
 import { createElement, useEffect, useState } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import browserPopupRemote from '@deepseek-ai/dsh-browser-popup/remote'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-browser-popup/remote'
 // Type-only: pulls the ui-layout SlotMap merge that declares `shell.overlay`
 // and the ui-conversation merge that declares `conversation.session.header.actions`.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -22,7 +22,7 @@ import { BrowserPopupAction, isPopupVisible, setPopupVisible, subscribePopup } f
 export const name = 'browser-popup-client'
 
 /** Services required before the controls can register. */
-export const inject = ['slots', 'remote', 'remote.browserPopup']
+export const inject = ['slots', 'remote']
 
 /** The overlay slot occupant id within `shell.overlay`. */
 export const POPUP_ID = 'browser-popup'
@@ -39,7 +39,11 @@ export { BrowserPopupAction } from './BrowserPopupAction.tsx'
  * nothing while hidden.
  * @param ctx - the context whose `slots` and `remote` services are consumed.
  */
-export function apply(ctx: ClientContext): void {
+export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
+  // This package owns its Remote namespace: mounting the generated
+  // contribution here keeps the shared api-remotes assembly unaware of it, so
+  // a deployment can compose the popup without editing that package.
+  const disposeRemote = await ctx.remote.$mount(browserPopupRemote)
   ctx.slots.inject(
     'conversation.session.header.actions',
     () => ctx.slots.register(
@@ -62,4 +66,5 @@ export function apply(ctx: ClientContext): void {
       },
     ),
   )
+  return disposeRemote
 }

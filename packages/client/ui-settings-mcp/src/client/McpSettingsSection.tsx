@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type {
   McpServerDraft, McpServerSnapshot, McpServerView,
-} from '@deepseek-ai/dsh-api-remotes/client'
+} from '@deepseek-ai/dsh-mcp-manager/types'
 import {
   IconCloseOutline16, IconEditOutline16, IconPlusOutline16, IconRefreshOutline16, IconTrashOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'

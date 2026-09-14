@@ -1,6 +1,7 @@
 /** MCP management Settings contribution. */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import mcpManagerRemote from '@deepseek-ai/dsh-mcp-manager/remote'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -18,9 +19,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 const NS = 'settings.mcp'
-export const inject = ['slots', 'locale', 'remote', 'remote.mcpManager', 'connection']
+export const inject = ['slots', 'locale', 'remote', 'connection']
 
-export function apply(ctx: ClientContext): void {
+export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
+  // This package owns the manager's Remote namespace: mounting the generated
+  // contribution here keeps the shared api-remotes assembly unaware of it.
+  const disposeRemote = await ctx.remote.$mount(mcpManagerRemote)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-mcp: dictionaries')
   const t = ctx.locale.bind(NS)
   type Operation<T> = Promise<
@@ -51,4 +55,5 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: injected,
   }, McpSettingsSection))
+  return disposeRemote
 }

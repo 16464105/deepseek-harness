@@ -1124,9 +1124,6 @@ importers:
       '@deepseek-ai/dsh-api-workspace-files':
         specifier: workspace:^
         version: link:../workspace-files
-      '@deepseek-ai/dsh-browser-popup':
-        specifier: workspace:^
-        version: link:../../browser/browser-popup
       '@deepseek-ai/dsh-client-connection':
         specifier: workspace:^
         version: link:../../client/connection
@@ -1157,9 +1154,6 @@ importers:
       '@deepseek-ai/dsh-llm':
         specifier: workspace:^
         version: link:../../llm/llm
-      '@deepseek-ai/dsh-mcp-manager':
-        specifier: workspace:^
-        version: link:../../mcp/mcp-manager
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:^
         version: link:../../feedback/message-feedback
@@ -3924,6 +3918,10 @@ importers:
         version: 18.3.1
 
   packages/client/ui-settings-mcp:
+    dependencies:
+      '@deepseek-ai/dsh-mcp-manager':
+        specifier: workspace:^
+        version: link:../../mcp/mcp-manager
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
