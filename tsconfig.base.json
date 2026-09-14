@@ -467,7 +467,8 @@
       "@deepseek-ai/dsh-llm-tencent-codebuddy/invariant": ["./packages/llm/llm-tencent-codebuddy/src/invariant.ts"],
       "@deepseek-ai/dsh-desktop-app": ["./packages/bundle/desktop-app/src"],
       "@deepseek-ai/dsh-client-ui-settings-mcp": ["./packages/client/ui-settings-mcp/src"],
-      "@deepseek-ai/dsh-client-ui-brand-desktop": ["./packages/client/ui-brand-desktop/src"]
+      "@deepseek-ai/dsh-client-ui-brand-desktop": ["./packages/client/ui-brand-desktop/src"],
+      "@deepseek-ai/dsh-client-ui-settings-skill": ["./packages/client/ui-settings-skill/src"]
     }
   }
 }

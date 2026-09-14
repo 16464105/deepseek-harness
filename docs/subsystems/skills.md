@@ -213,6 +213,12 @@ interface SkillLookupOptions {
 interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /**
+   * Re-read every provider instead of serving a cached observation. An
+   * explicit refresh gesture sets it, where a person expects a just-added
+   * file to appear; ordinary reads keep the cache.
+   */
+  readonly refresh?: boolean | undefined
 }
 ```
 

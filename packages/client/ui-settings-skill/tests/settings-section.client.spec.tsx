@@ -2,8 +2,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls this package's locale-namespace declaration so the
+// component's `t` prop resolves.
+import type {} from '../src/client/index.ts'
 import { SkillSettingsSection, type SkillSettingsProps } from '../src/client/SkillSettingsSection.tsx'
-import { zh, type SkillKey } from '../src/client/locales.ts'
+import { zh, type SkillSettingsKey } from '../src/client/locales.ts'
 import { SkillVisibility } from '../src/client/visibility.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -50,7 +53,7 @@ function directorySource(state: DirectoryState) {
   return { store, useSkillsDirectory }
 }
 
-function t(key: SkillKey): string {
+function t(key: SkillSettingsKey): string {
   return zh[key]
 }
 

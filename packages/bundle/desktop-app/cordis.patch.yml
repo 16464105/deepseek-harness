@@ -53,6 +53,11 @@
     - id: ui-settings-mcp
       name: '@deepseek-ai/dsh-client-ui-settings-mcp'
 
+    # The Skills Settings section over the session skill catalog. Upstream's
+    # ui-skill owns the chat picker only, so this row owns the management page.
+    - id: ui-settings-skill
+      name: '@deepseek-ai/dsh-client-ui-settings-skill'
+
     # This deployment's own whale mark and product name. The official occupant
     # registers at the default priority; this one registers below it and wins
     # the single-slot election, so upstream artwork and the shared locale

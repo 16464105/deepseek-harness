@@ -116,12 +116,9 @@ describe('apply', () => {
     expect(entry?.options).toMatchObject({ key: 'skill' })
     expect(entry?.locale).toBe('skill')
     expect(entry?.component).toBe(SkillToolRow)
-    // The namespace also carries the Skills settings page copy; the row keys
-    // below are the ones this plugin's tool row reads.
     expect(presentation.dictionaries).toEqual([{
-      namespace: 'skill',
-      dictionaries: {
-        zh: expect.objectContaining({
+      namespace: 'skill', dictionaries: {
+        zh: {
           'row.title': 'Skill',
           'row.running': '正在加载 skill',
           'row.failed': 'skill 加载失败',
@@ -129,8 +126,8 @@ describe('apply', () => {
           'row.instructions': '说明',
           'row.inspect': '查看',
           'menu.userOnly': '仅用户',
-        }),
-        en: expect.objectContaining({
+        },
+        en: {
           'row.title': 'Skill',
           'row.running': 'Loading skill',
           'row.failed': 'Skill load failed',
@@ -138,7 +135,7 @@ describe('apply', () => {
           'row.instructions': 'Instructions',
           'row.inspect': 'Inspect',
           'menu.userOnly': 'user-only',
-        }),
+        },
       },
     }])
   })

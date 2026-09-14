@@ -43,6 +43,7 @@
     "@deepseek-ai/dsh-browser-popup": "workspace:^",
     "@deepseek-ai/dsh-client-ui-brand-desktop": "workspace:^",
     "@deepseek-ai/dsh-client-ui-settings-mcp": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-settings-skill": "workspace:^",
     "@deepseek-ai/dsh-llm-tencent-codebuddy": "workspace:^",
     "@deepseek-ai/dsh-mcp-manager": "workspace:^"
   },

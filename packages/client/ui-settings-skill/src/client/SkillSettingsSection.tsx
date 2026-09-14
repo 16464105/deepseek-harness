@@ -4,7 +4,7 @@ import { IconFolderOpenOutline16, IconRefreshOutline16, IconSearchOutline16 } fr
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SkillVisibility } from './visibility.ts'
 import type { SkillsDirectoryState } from './skills-directory-store.ts'
-import type { SkillKey } from './locales.ts'
+import type { SkillSettingsKey } from './locales.ts'
 import css from './SkillSettingsSection.module.css'
 
 /** Settings-page dependencies supplied by the plugin registration. */
@@ -30,7 +30,7 @@ export interface SkillSettingsInjected {
 
 /** Full props assembled by the Settings slot renderer. */
 export type SkillSettingsProps = PropsRuntime<'settings.section'>
-  & PropsLocale<'skill'>
+  & PropsLocale<'settings.skill'>
   & InjectFace<SkillSettingsInjected>
 
 type ViewState =
@@ -46,7 +46,7 @@ const SOURCE_KEYS = {
   bundled: 'settings.sourceBundled',
   runtime: 'settings.sourceRuntime',
   custom: 'settings.sourceCustom',
-} as const satisfies Record<string, SkillKey>
+} as const satisfies Record<string, SkillSettingsKey>
 
 /** Render the Skill catalog and chat-picker visibility controls. */
 export function SkillSettingsSection({
@@ -145,7 +145,7 @@ export function SkillSettingsSection({
           {filtered.length === 0 ? <p className={css.status}>{t(normalized === '' ? 'settings.empty' : 'settings.emptySearch')}</p> : null}
           <ul className={css.list}>
             {filtered.map((skill) => {
-              const sourceKey = (SOURCE_KEYS as Partial<Record<string, SkillKey>>)[skill.source ?? '']
+              const sourceKey = (SOURCE_KEYS as Partial<Record<string, SkillSettingsKey>>)[skill.source ?? '']
               const source = sourceKey === undefined ? skill.source ?? '' : t(sourceKey)
               return (
                 <li className={css.row} key={skill.name}>
