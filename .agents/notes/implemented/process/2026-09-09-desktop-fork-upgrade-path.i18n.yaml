@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-09-desktop-fork-upgrade-path.md
-2026-09-09-desktop-fork-upgrade-path.md: 2a9d36a488195e4eb7d2bb1259489d85bfc67b2a
-2026-09-09-desktop-fork-upgrade-path.zh.md: e87559db80d3e28cdd8da8143358d88b65f1b352
+2026-09-09-desktop-fork-upgrade-path.md: 8ac8fca5b2b8ac04ebc50c06fc20c98c3beb5ae5
+2026-09-09-desktop-fork-upgrade-path.zh.md: ffa70e9889c8550e93b03f6baffa29f21518c3ee

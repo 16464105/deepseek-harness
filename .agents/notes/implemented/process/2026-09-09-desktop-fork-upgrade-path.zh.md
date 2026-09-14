@@ -18,14 +18,14 @@ fork 行为的外部化分两层推进，因为两层的前提条件不同。
 
 **第一层——组合即可表达，无需上游改动。** 凡是已验证的 `Config` 字段、可替换的插件槽位或构建环境变量能表达的定制，都从补丁源码中移出。16384px 单边图片上限是第一个：`attachment-local` 已把 `maxImageDimension` 声明为已验证字段，因此由 `packages/bundle/desktop-app/cordis.patch.yml` 设置它，而 `packages/attachment/attachment-local` 重新与上游一致。品牌图形本已是可替换的占位者：`ui-brand-official` 填充 `sidebar.brand.name` 与 `sidebar.brand.mark`，而 `sidebar.brand.name` 是单占位槽位，后注册者可用更低优先级遮蔽它。产品标题在回退到 locale 之前先读取 `process.env.DSH_CLIENT_TITLE`。
 
-**第二层——需要上游扩展点，fork 无法独自提供。** 仍有 11 个上游源文件承载 fork 行为，分四组：
+**第二层——需要上游扩展点，fork 无法独自提供。** 仍有 10 个上游源文件承载 fork 行为，分四组：
 
-- `packages/api/session-controller` 为 skill 目录新增 `openDirectory`、`canOpenPath` 与 `refresh`，并声明模型席位读取的模型输入模态。
-- `packages/client/ui-model-selection` 在有图片随下一次请求发送时拒绝纯文本路由，这需要在单占位的 `conversation.input.model` 席位上提供一个能力装饰扩展点。
-- `packages/client/ui-skill` 与 `packages/client/ui-settings-models` 承载 Skills 设置页与 provider 通用的 onboarding 对话框。
-- `packages/llm/llm-pi-ai`、`packages/skill/skill`、`packages/client/locale` 与 `packages/client/ui-primitives` 承载 `prepareRequest` 适配器钩子、公开的 `SkillRegistry.refresh()`、fork 的品牌文案，以及生产鲸鱼矢量。
+- `packages/api/session-controller` 把路由声明的输入模态投影进客户端目录，并透传 refresh 请求；原本位于此处的 skill 目录界面现在有自己的包。
+- `packages/client/ui-model-selection` 在有图片随下一次请求发送时拒绝纯文本路由。它读取 `useInput`——一个既有的 session 座位——因此不需要新的框架界面，只需要上面的模态字段。
+- `packages/client/ui-settings-models` 让 onboarding 步骤通用化：`preferredProvider` 是已验证的配置字段，readiness 以该 provider 作为参数。
+- `packages/llm/llm-pi-ai` 与 `packages/skill/skill` 承载 `prepareRequest` 适配器钩子与目录刷新 view option。两者都遵循其邻居已有的形态：`prepareRequest` 与 `resolveApiKey`、`resolveAttachments`、`onReplayDegrade` 并列，`refresh` 与 `scope`、`cwd`、`signal` 一同走在 `SkillViewOptions` 上。
 
-六项第一层工作已经落地。`packages/api/remotes` 重新与上游一致：browser popup 与 MCP 设置页各自通过 `ctx.remote.$mount` 挂载自己生成的 Remote contribution（agent-team 客户端使用的模式），因此共享装配不再命名任何一个命名空间。图片上限已移入组合。桌面层挂载 browser、popup、MCP manager 与 MCP 设置这些行，因为上游的 base 与 web-app bundle 完全不含 browser 或 MCP 行——缺少这些行时，打包版本会启动成纯 Web 界面。onboarding 目标成为 `preferredProvider` 配置字段。品牌图形移入 `dsh-client-ui-brand-desktop`，它以更低的槽位优先级遮蔽官方占位者；回退 `FishLogo` 同时恢复了首屏的游动动画，因为它的形变目标是在上游坐标系中生成的。Skills 管理页与用户 skill 目录各自移入独立包（`dsh-client-ui-settings-skill` 与 `dsh-skill-directory`），使 `ui-skill` 只负责聊天选择器。
+八项第一层工作已经落地。`packages/api/remotes` 重新与上游一致：browser popup 与 MCP 设置页各自通过 `ctx.remote.$mount` 挂载自己生成的 Remote contribution（agent-team 客户端使用的模式），因此共享装配不再命名任何一个命名空间。图片上限已移入组合。桌面层挂载 browser、popup、MCP manager 与 MCP 设置这些行，因为上游的 base 与 web-app bundle 完全不含 browser 或 MCP 行——缺少这些行时，打包版本会启动成纯 Web 界面。onboarding 目标成为 `preferredProvider` 配置字段。品牌图形移入 `dsh-client-ui-brand-desktop`，它以更低的槽位优先级遮蔽官方占位者；回退 `FishLogo` 同时恢复了首屏的游动动画，因为它的形变目标是在上游坐标系中生成的。Skills 管理页与用户 skill 目录各自移入独立包（`dsh-client-ui-settings-skill` 与 `dsh-skill-directory`），使 `ui-skill` 只负责聊天选择器。`ui-primitives` 与 `client/locale` 重新与上游一致，模型席位宿主侧的图片需求管线被移除，因为从未有代码设置它——草稿自身的附件一直是唯一有效信号。
 
 这七个桌面专有包可发布，且已位于上游目录树之外，因此一旦它们所补丁的包暴露上述扩展点，就能安装进上游 profile。
 
