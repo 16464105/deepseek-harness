@@ -25,8 +25,6 @@ export interface ModelDirectoryState {
    * from the groups yet perfectly usable.
    */
   routable: boolean | null
-  /** Whether visible history or the pending Host inbox requires image input. */
-  requiresImageInput: boolean
   /** Successfully loaded provider groups (last good load). */
   groups: readonly ModelProviderGroup[]
   /** Provider-local failures from the last load; usable groups stay usable. */
@@ -41,7 +39,7 @@ export interface ModelDirectoryState {
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
   readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
-    current: null, routable: null, requiresImageInput: false, groups: [], failures: [], status: 'idle', error: null,
+    current: null, routable: null, groups: [], failures: [], status: 'idle', error: null,
   })
 
   /** Latest selection operation wins; an older response never overwrites a newer one. */
@@ -50,17 +48,6 @@ export class ModelDirectory {
   private resolved = false
   private readonly unsubscribeCatalog: () => void
   private readonly unsubscribeSelection: () => void
-
-  /**
-   * Record whether visible history or the pending Host inbox requires image
-   * input; the composer block and the model seat read it to refuse text-only
-   * routes while an image rides the next request.
-   * @param requires - whether the next assembled step needs image input.
-   */
-  setImageRequirement(requires: boolean): void {
-    if (this.disposed || this.store.getSnapshot().requiresImageInput === requires) return
-    this.store.update((state) => { state.requiresImageInput = requires })
-  }
 
   /**
    * @param sessions - the session wire face (captured from the plugin's root connection).
@@ -165,7 +152,6 @@ export class ModelDirectory {
       this.store.set({
         current: null,
         routable: null,
-        requiresImageInput: this.store.getSnapshot().requiresImageInput,
         groups: [],
         failures: [],
         status: catalog.status === 'error' ? 'error' : 'loading',
@@ -178,7 +164,6 @@ export class ModelDirectory {
     this.store.set({
       current,
       routable: catalog.value.routableProviders.includes(current.provider),
-      requiresImageInput: this.store.getSnapshot().requiresImageInput,
       groups: catalog.value.groups,
       failures: catalog.value.failures,
       status: this.store.getSnapshot().status === 'selecting'

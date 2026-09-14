@@ -113,7 +113,7 @@ export function ModelSelect(
     ], [reasoning, t])
   const busy = state.status === 'selecting'
   const draftRequiresImage = useInput(input => input.attachmentIds.length > 0)
-  const imageRequired = state.requiresImageInput || draftRequiresImage
+  const imageRequired = draftRequiresImage
   const currentRejectsImage = rejectsImage(currentChoice?.model)
 
   useEffect(() => {
