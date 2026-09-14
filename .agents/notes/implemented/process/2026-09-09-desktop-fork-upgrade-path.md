@@ -25,7 +25,7 @@ Externalizing the fork's behavior proceeds in two tiers, because the two tiers h
 - `packages/client/ui-skill` and `packages/client/ui-settings-models` carry the Skills settings section and the provider-generic onboarding dialog.
 - `packages/llm/llm-pi-ai`, `packages/skill/skill`, `packages/client/locale`, and `packages/client/ui-primitives` carry the `prepareRequest` adapter hook, the public `SkillRegistry.refresh()`, the fork's brand copy, and the production whale vector.
 
-Two Tier-1 moves already landed. `packages/api/remotes` matches upstream again: the browser popup and the MCP settings section each mount their own generated Remote contribution through `ctx.remote.$mount`, the pattern the agent-team client uses, so the shared assembly never names either namespace. The image bound moved into composition.
+Three Tier-1 moves already landed. `packages/api/remotes` matches upstream again: the browser popup and the MCP settings section each mount their own generated Remote contribution through `ctx.remote.$mount`, the pattern the agent-team client uses, so the shared assembly never names either namespace. The image bound moved into composition. The desktop layer mounts the browser, popup, MCP manager, and MCP settings rows, because upstream's base and web-app bundles carry no browser or MCP row at all — without those rows a packaged build boots the plain Web surface.
 
 The seven desktop-only packages are publishable and already live outside upstream's tree, so they can be installed into an upstream profile once the packages they patch expose those extension points.
 
