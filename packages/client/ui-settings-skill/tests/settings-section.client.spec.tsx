@@ -68,7 +68,7 @@ function renderSection(overrides: {
   list?: (sessionId: SessionId, refresh: boolean) => Promise<readonly SkillEntry[]>
   visibility?: SkillVisibility
   directory?: ReturnType<typeof directorySource>
-  loadDirectory?: (sessionId: SessionId) => void
+  loadDirectory?: () => void
   openDirectory?: () => void
 }) {
   const list = overrides.list ?? vi.fn(() => Promise.resolve(SKILLS))

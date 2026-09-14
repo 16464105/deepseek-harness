@@ -344,6 +344,7 @@
     { "path": "./packages/browser/browser" },
     { "path": "./packages/browser/browser-popup/tsconfig.host.json" },
     { "path": "./packages/mcp/mcp-client" },
+    { "path": "./packages/skill/skill-directory" },
     { "path": "./packages/mcp/mcp-manager" },
     { "path": "./packages/llm/llm-tencent-codebuddy" },
     { "path": "./packages/bundle/desktop-app" },

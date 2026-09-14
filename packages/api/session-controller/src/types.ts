@@ -241,16 +241,8 @@ export interface SkillEntry {
   readonly provider?: string
 }
 
-/** Host facts about the user skills directory the settings page reveals. */
-export interface SkillDirectoryInfo {
-  /** Absolute user skills directory on the Host, created on first read. */
-  readonly openDirectory: string
-  /** Whether the Host can open that directory with its native opener. */
-  readonly canOpenPath: boolean
-}
-
 /** Human-invocable skills visible through one Session's composition. */
-export interface SkillListValue extends SkillDirectoryInfo {
+export interface SkillListValue {
   readonly skills: readonly SkillEntry[]
 }
 

@@ -1,6 +1,5 @@
 /** State owner for the "open skills directory" action on the Skills settings page. */
 
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
@@ -32,24 +31,25 @@ export class SkillsDirectoryStore {
   private generation = 0
 
   /**
-   * @param skills - the skills wire face that reports and opens the directory.
+   * @param directory - the skills-directory wire face that reports and opens
+   *   the user skills directory.
    */
-  constructor(private readonly skills: Pick<TypertClientRemote['skills'], 'list' | 'openDirectory'>) {}
+  constructor(
+    private readonly directory: Pick<TypertClientRemote['skillDirectory'], 'info' | 'open'>,
+  ) {}
 
   /**
-   * Read the current directory facts from the host. Requires a session so the
-   * skills domain can resolve its project scope, matching the catalog read.
-   * @param sessionId - the session the page is viewing.
+   * Read the current directory facts from the host.
    * @returns after the latest metadata response updates the store.
    */
-  async load(sessionId: SessionId): Promise<void> {
+  async load(): Promise<void> {
     const generation = ++this.generation
     this.store.update((state) => {
       state.status = 'loading'
       state.error = null
     })
     try {
-      const result = await this.skills.list({ sessionId })
+      const result = await this.directory.info()
       if (generation !== this.generation) return
       if (!result.ok) {
         this.store.update((state) => {
@@ -85,7 +85,7 @@ export class SkillsDirectoryStore {
       state.error = null
     })
     try {
-      const result = await this.skills.openDirectory()
+      const result = await this.directory.open()
       if (!result.ok) throw new Error(result.error.message)
     } catch (error) {
       this.store.update((state) => { state.error = messageOf(error) })

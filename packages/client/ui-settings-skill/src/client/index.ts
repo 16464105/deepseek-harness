@@ -8,6 +8,8 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: pulls the client session service (ctx.sessions) this section
 // reads the current session from.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+// Type-only: pulls the skills-directory Remote namespace this section reads.
+import type {} from '@deepseek-ai/dsh-skill-directory/remote'
 import { SkillSettingsSection, type SkillSettingsInjected } from './SkillSettingsSection.tsx'
 import { SkillsDirectoryStore } from './skills-directory-store.ts'
 import { SkillVisibility } from './visibility.ts'
@@ -23,7 +25,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required before the section can register. */
-export const inject = ['slots', 'locale', 'remote.skills', 'sessions']
+export const inject = ['slots', 'locale', 'remote.skills', 'remote.skillDirectory', 'sessions']
 
 /**
  * Register the Skills Settings section over the session skill catalog.
@@ -39,7 +41,7 @@ export function apply(ctx: ClientContext): void {
   const visibility = new SkillVisibility()
   // The skills directory action state: the host's answer to "where do skills
   // live" plus the open gesture. One instance shared by the settings section.
-  const directoryStore = new SkillsDirectoryStore(ctx.remote.skills)
+  const directoryStore = new SkillsDirectoryStore(ctx.remote.skillDirectory)
 
   const currentSession: SkillSettingsInjected['currentSession'] = {
     getSnapshot: () => sessions.list.getSnapshot().current,
@@ -59,7 +61,7 @@ export function apply(ctx: ClientContext): void {
       return result.value.skills
     },
     hooks: { skillsDirectory: directoryStore.store },
-    loadDirectory: (sessionId) => { void directoryStore.load(sessionId) },
+    loadDirectory: () => { void directoryStore.load() },
     openDirectory: () => { void directoryStore.open() },
   })
 

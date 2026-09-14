@@ -460,6 +460,8 @@
       "@deepseek-ai/dsh-browser/invariant": ["./packages/browser/browser/src/invariant.ts"],
       "@deepseek-ai/dsh-browser-popup": ["./packages/browser/browser-popup/src"],
       "@deepseek-ai/dsh-browser-popup/invariant": ["./packages/browser/browser-popup/src/invariant.ts"],
+      "@deepseek-ai/dsh-skill-directory": ["./packages/skill/skill-directory/src"],
+      "@deepseek-ai/dsh-skill-directory/types": ["./packages/skill/skill-directory/src/types.ts"],
       "@deepseek-ai/dsh-mcp-manager": ["./packages/mcp/mcp-manager/src"],
       "@deepseek-ai/dsh-mcp-manager/types": ["./packages/mcp/mcp-manager/src/types.ts"],
       "@deepseek-ai/dsh-mcp-manager/invariant": ["./packages/mcp/mcp-manager/src/invariant.ts"],

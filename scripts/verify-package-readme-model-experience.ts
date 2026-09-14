@@ -57,6 +57,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-agent-preset': { kind: 'indirect', reason: 'Browser-side settings row; the preset it selects owns every model-facing effect.' },
   'packages/client/ui-brand-desktop': { kind: 'indirect', reason: 'Browser-side brand occupant; it renders sidebar artwork and registers no prompt, schema, or result.' },
   'packages/client/ui-settings-skill': { kind: 'indirect', reason: 'Browser-side Skills management page; its only model-facing effect is the chat picker visibility choice it shares with ui-skill.' },
+  'packages/skill/skill-directory': { kind: 'indirect', reason: 'The directory it reports is the root the filesystem provider discovers skills from, so its only model-facing effect is through that catalog.' },
   'packages/client/ui-settings-mcp': { kind: 'indirect', reason: 'Browser-side MCP settings layer; each enabled server definition mounts a child mcp-client whose discovered tools own every model-facing effect.' },
   'packages/mcp/mcp-manager': { kind: 'indirect', reason: 'The manager owns persisted server definitions and management controls; each enabled child mcp-client fiber registers and renders its own discovered tools.' },
   'packages/util/crypto': { kind: 'indirect', reason: 'Pure identifier minting; the ids consumers mint with it never enter prompts as semantic content.' },

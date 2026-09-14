@@ -1,10 +1,6 @@
 /** Session-addressed, cold-readable skill catalog Remote. */
 
-import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { canOpenNativePath, openNativePath } from '@deepseek-ai/dsh-native-command'
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
@@ -83,16 +79,6 @@ export class SessionSkillCatalog extends TypertRemoteService {
         scope,
         ...request.refresh === true ? { refresh: true } : {},
       })).filter(isUserInvocable)
-      // The user skills directory a person installs skills into. The same
-      // single harness-home root the settings document uses, and the root
-      // `dsh-skill-filesystem` scans as `user-dsh` — so the directory the
-      // surface opens is exactly where discovered user skills come from.
-      // Created here rather than left absent: a home whose person never
-      // installed a user skill has no directory yet, and macOS `open` fails
-      // on a missing target, so the open action would otherwise always error
-      // on a fresh home.
-      const openDirectory = join(resolveDshHome(), 'skills')
-      await mkdir(openDirectory, { recursive: true })
       return {
         skills: skills.map(skill => ({
           name: skill.name,
@@ -102,32 +88,9 @@ export class SessionSkillCatalog extends TypertRemoteService {
           source: skill.source,
           provider: skill.provider,
         })),
-        openDirectory,
-        canOpenPath: canOpenNativePath(),
       }
     } catch (error: unknown) {
       throw new RemoteError('gateway/internal', `skill listing failed: ${String(error)}`, {})
-    }
-  }
-
-  /**
-   * Open the user skills directory on the host desktop.
-   * @param signal - caller lifetime carried by the Remote transport.
-   * @returns whether the native opener accepted the path; the client reveals
-   * the directory as text when it did not.
-   * @throws RemoteError when no native opener is available.
-   */
-  @Remote('openDirectory')
-  async openDirectory(signal: AbortSignal): Promise<{ opened: boolean; path: string }> {
-    const path = join(resolveDshHome(), 'skills')
-    await mkdir(path, { recursive: true })
-    if (!canOpenNativePath()) return { opened: false, path }
-    signal.throwIfAborted()
-    try {
-      await openNativePath(path, signal)
-      return { opened: true, path }
-    } catch (error: unknown) {
-      throw new RemoteError('gateway/internal', `opening the skills directory failed: ${String(error)}`, {})
     }
   }
 

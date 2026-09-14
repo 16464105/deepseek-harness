@@ -22,8 +22,8 @@ export interface SkillSettingsInjected {
       subscribe: (listener: () => void) => () => void
     }
   }
-  /** Read the host directory facts for the current session. */
-  loadDirectory: (sessionId: SessionId) => void
+  /** Read the host user-skills directory facts. */
+  loadDirectory: () => void
   /** Ask the host to open the user skills directory on the desktop. */
   openDirectory: () => void
 }
@@ -75,8 +75,8 @@ export function SkillSettingsSection({
 
   useEffect(() => {
     if (sessionId === undefined) return
-    loadDirectory(sessionId)
-  }, [loadDirectory, sessionId])
+    loadDirectory()
+  }, [loadDirectory])
 
   const normalized = query.trim().toLocaleLowerCase()
   const filtered = useMemo(() => state.status === 'ready'
