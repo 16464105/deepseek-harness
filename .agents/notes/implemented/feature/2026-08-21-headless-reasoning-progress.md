@@ -8,7 +8,7 @@ English | [中文](2026-08-21-headless-reasoning-progress.zh.md)
 
 The one-shot headless runner waits for complete Agent quiescence before printing the final assistant text. Reasoning-capable providers already expose their reasoning as durable `assistant/chunk` events, but a long reasoned response leaves the terminal silent until the run completes. The final answer must remain the only stdout payload so command substitution and other consumers keep a stable result channel.
 
-The earlier [direct core entry-point decision](../architecture/2026-08-09-headless-direct-core-entry-point.md) required empty stderr on every successful run. That clause prevents live reasoning progress and is superseded by this note; its transport, durability, and completion decisions remain unchanged.
+The earlier [direct core entry-point decision](../../archived/architecture/2026-08-09-headless-direct-core-entry-point.md) required empty stderr on every successful run. That clause prevents live reasoning progress and is superseded by this note; its transport, durability, and completion decisions remain unchanged.
 
 ## Decision
 

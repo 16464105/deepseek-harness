@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Model-facing browser-operation tools driving one persistent local Chromium through [Playwright](https://playwright.dev). The package owns the complete tool suite — `browser_navigate`, `browser_click`, `browser_type`, `browser_press_key`, `browser_snapshot`, `browser_screenshot` — their schemas, the pinned model-facing prose, the `aria-ref` interaction contract, engine selection, and the attachments-conditional screenshot path. The Playwright session lives behind the private `BrowserController` service; no other package reads it, so the capability ships as one plugin without a public seam ([rationale](../../../.agents/notes/implemented/feature/2026-08-16-browser-tools.md)).
+Model-facing browser-operation tools driving one persistent local Chromium through [Playwright](https://playwright.dev). The package owns the six-tool suite, their schemas, the pinned model-facing prose, the `aria-ref` interaction contract, engine selection, and the attachments-conditional screenshot path. The Playwright session lives behind the private `BrowserController` service; no other package reads it, so the capability ships as one plugin without a public seam ([rationale](../../../.agents/notes/implemented/feature/2026-08-16-browser-tools.md)).
 
-The tools model the Playwright `mode: 'ai'` accessibility snapshot loop: `browser_snapshot` returns the page's aria snapshot YAML with `[ref=eN]` markers, and `browser_click`/`browser_type` address elements by those refs. A ref absent from the last snapshot is rejected before any browser interaction, so a stale reference fails with a model-readable error instead of clicking the wrong element.
+The tools model the Playwright `mode: 'ai'` accessibility loop: `browser_snapshot` returns aria snapshot YAML with `[ref=eN]` markers, and clicks and typing address elements by those refs. A ref absent from the last snapshot is rejected before any interaction.
 
 ## Table of Contents
 

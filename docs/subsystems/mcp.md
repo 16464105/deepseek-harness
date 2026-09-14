@@ -6,7 +6,7 @@ The MCP packages connect the Host to external Model Context Protocol servers. `m
 
 ## Runtime status
 
-The client emits `mcp/status` for transport phases and discovered tool counts. The manager projects those values without treating its own plugin activation as server connectivity. Disabling or removing an entry disposes its child fiber, unregistering the server's published tools; enabling or restarting mounts a fresh generation.
+The manager derives each server's phase from its child fiber: a definition it disabled reports `disabled`, an entry whose mount is still in flight reports `connecting`, and a resolved fiber reports `connected` with the count of published tools carrying that server's name prefix. It never treats its own plugin activation as server connectivity. Disabling or removing an entry disposes its child fiber, unregistering the server's published tools; enabling or restarting mounts a fresh generation.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

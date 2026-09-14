@@ -8,7 +8,7 @@ Status: implemented
 
 一次性 headless runner 会等待 Agent（智能体）完全停稳，再打印最终 assistant 文本。具备推理能力的提供方已经把推理作为持久化的 `assistant/chunk` 事件暴露，但耗时较长的推理响应会让终端在运行完成前始终保持静默。最终答案必须继续作为 stdout 中唯一的载荷，使命令替换和其他消费方保持稳定的结果通道。
 
-此前的[直接使用核心服务入口决策](../architecture/2026-08-09-headless-direct-core-entry-point.zh.md)要求每次成功运行都保持 stderr 为空。该条款会阻止实时推理进度，因此由本 Agent Note 取代；其中关于传输、持久性与完成状态的其他决策保持不变。
+此前的[直接使用核心服务入口决策](../../archived/architecture/2026-08-09-headless-direct-core-entry-point.md)要求每次成功运行都保持 stderr 为空。该条款会阻止实时推理进度，因此由本 Agent Note 取代；其中关于传输、持久性与完成状态的其他决策保持不变。
 
 ## 决策
 

@@ -6,7 +6,7 @@ MCP 包把 Host 连接到外部 Model Context Protocol 服务器。`mcp-client` 
 
 ## 运行时状态
 
-客户端为传输阶段和已发现工具数量发出 `mcp/status`。管理器投影这些值，不把自身插件激活误报为服务器已连接。停用或删除条目会释放子 fiber，并注销服务器发布的工具；启用或重连会挂载新的世代。
+管理器从每个服务器的子 fiber 推导其阶段：被它停用的定义报告 `disabled`，挂载仍在进行中的条目报告 `connecting`，而已解析的 fiber 报告 `connected`，并附带以该服务器名前缀发布的工具数量。它绝不把自身插件激活误当作服务器已连接。停用或删除条目会释放子 fiber，并注销服务器发布的工具；启用或重连会挂载新的世代。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

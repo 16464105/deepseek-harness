@@ -20,6 +20,14 @@
 - id: client-hmr
   disabled: true
 
+# This deployment's model routes accept larger sources than the shared
+# default admits: CodeBuddy and the DeepSeek vision routes take a 16384px
+# side, so raise the per-side admission bound here instead of shipping a
+# patched constant. The total decoded-pixel bound above it still applies.
+- id: attachment-local
+  config:
+    maxImageDimension: 16384
+
 - id: agent-default-model
   config:
     provider: tencent-internal

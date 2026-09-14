@@ -45,6 +45,7 @@
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
+| `@deepseek-ai/dsh-browser` | `browser_click`、`browser_navigate`、`browser_press_key`、`browser_screenshot`、`browser_snapshot`、`browser_type` | `ctx.tools`、`ctx.systemPrompt`、`ctx.attachments（browser_screenshot 注册）` | `tool/call`、`durable attachment（browser_screenshot）`、`tool/result` | - | browser_screenshot 仅在挂载了持久附件存储时注册，因为它返回的图片块必须引用一个已提交的附件。Playwright 会话位于私有的 BrowserController 之后并在首次使用时启动，因此本包不对外暴露 seam。 |
 
 <a id="deepseek-aidsh-tool-ask-user"></a>
 
@@ -2275,3 +2276,142 @@ todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为
 来源：[`packages/web/tool-web/src/index.ts`](../packages/web/tool-web/src/index.ts)
 
 web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。
+
+<a id="deepseek-aidsh-browser"></a>
+
+## `@deepseek-ai/dsh-browser`
+
+
+### `browser_click`
+
+点击最近一次 browser_snapshot 中给定 ref 对应的元素。如果页面可能已变化，请先重新运行 browser_snapshot。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Element ref from the last browser_snapshot (e.g. \"e4\")."
+    }
+  },
+  "required": [
+    "ref"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+### `browser_navigate`
+
+让常驻浏览器页面跳转到绝对 http(s) URL。页面在多次调用之间保持；随后用 browser_snapshot 查看其无障碍内容。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "Absolute URL to load (http or https)."
+    }
+  },
+  "required": [
+    "url"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+### `browser_press_key`
+
+在当前页面按下按键，可带修饰键（Control、Meta、Shift、Alt）。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Key to press, e.g. \"Enter\", \"Escape\", \"ArrowDown\", \"a\"."
+    },
+    "modifiers": {
+      "type": "array",
+      "description": "Optional modifier keys held while pressing, e.g. [\"Control\", \"Shift\"].",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "key"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+### `browser_screenshot`
+
+截取当前页面视口并返回 PNG 图片。需要当前模型路由声明支持图片输入。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImage": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; the screenshot is always returned when the model accepts images."
+    }
+  }
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+### `browser_snapshot`
+
+返回带 [ref] 标记的无障碍树，供 browser_click/browser_type 使用；页面可能已变化时请重新获取。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "includeImageRefs": {
+      "type": "boolean",
+      "description": "Deprecated and ignored; image elements are always included."
+    }
+  }
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+### `browser_type`
+
+用给定文本替换最近一次 browser_snapshot 中 ref 对应文本框的内容。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ref": {
+      "type": "string",
+      "description": "Text-field ref from the last browser_snapshot."
+    },
+    "text": {
+      "type": "string",
+      "description": "The text to enter into the field."
+    }
+  },
+  "required": [
+    "ref",
+    "text"
+  ]
+}
+```
+
+来源：[`packages/browser/browser/src/tools.ts`](../packages/browser/browser/src/tools.ts)
+
+browser_screenshot 仅在挂载了持久附件存储时注册，因为它返回的图片块必须引用一个已提交的附件。Playwright 会话位于私有的 BrowserController 之后并在首次使用时启动，因此本包不对外暴露 seam。

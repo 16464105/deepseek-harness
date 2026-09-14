@@ -36,6 +36,7 @@ import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider } from '@deepseek-ai/dsh-subagent'
 import * as ToolSubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
 import * as ToolSubagentListAgents from '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+import * as BrowserTools from '@deepseek-ai/dsh-browser'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
@@ -603,6 +604,29 @@ const TOOL_PACKAGES: ToolPackage[] = [
     note:
       'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
   },
+  {
+    pkg: '@deepseek-ai/dsh-browser',
+    dir: 'browser',
+    source: {
+      browser_navigate: 'packages/browser/browser/src/tools.ts',
+      browser_click: 'packages/browser/browser/src/tools.ts',
+      browser_type: 'packages/browser/browser/src/tools.ts',
+      browser_press_key: 'packages/browser/browser/src/tools.ts',
+      browser_snapshot: 'packages/browser/browser/src/tools.ts',
+      browser_screenshot: 'packages/browser/browser/src/tools.ts',
+    },
+    requires: ['ctx.tools', 'ctx.systemPrompt', 'ctx.attachments (browser_screenshot registration)'],
+    writes: ['tool/call', 'durable attachment (browser_screenshot)', 'tool/result'],
+    async mount(ctx) {
+      // The controller is created eagerly but launches Chromium on first use,
+      // so the schema harvest never starts a browser. The seam marker makes
+      // the composition-conditional screenshot tool register.
+      await ctx.plugin(CatalogAttachmentStore)
+      await ctx.plugin(BrowserTools)
+    },
+    note:
+      'browser_screenshot registers only while a durable attachment store is mounted, because the image block it returns must reference a committed attachment. The Playwright session lives behind the private BrowserController and starts on first use, so this package carries no public seam.',
+  },
 ]
 
 /** One package's contribution to the catalog: its schemas plus attribution. */
@@ -631,13 +655,27 @@ export type ToolCatalog = CatalogPackage[]
  * `scanRoot` defaults to the repo root; a test may point it at a fixture tree.
  */
 export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, scanRoot: string = root): void {
-  const onDisk = globSync('packages/*/tool-*', { cwd: scanRoot }).map(p => basename(p)).sort()
+  // The `tool-*` naming convention covers the capability tool packages. A
+  // package outside it that still registers model-facing tools (the browser
+  // suite is one) is listed by its manifest `dir` and matched here, so a
+  // manifest entry cannot name a directory that no longer exists.
+  const onDisk = new Set([
+    ...globSync('packages/*/tool-*', { cwd: scanRoot }).map(p => basename(p)),
+    ...packages.map(p => p.dir).filter(dir => globSync(`packages/*/${dir}`, { cwd: scanRoot }).length > 0),
+  ])
   const listed = new Set(packages.map(p => p.dir))
-  const missing = onDisk.filter(dir => !listed.has(dir))
+  const missing = [...onDisk].filter(dir => !listed.has(dir)).sort()
   if (missing.length > 0) {
     throw new Error(
       `gen-tool-catalog: ${missing.length} tool package(s) not in the boot manifest: ${missing.join(', ')}. `
       + 'Add each to TOOL_PACKAGES in scripts/gen-tool-catalog.ts so its schema is catalogued.',
+    )
+  }
+  const stale = packages.filter(p => globSync(`packages/*/${p.dir}`, { cwd: scanRoot }).length === 0)
+  if (stale.length > 0) {
+    throw new Error(
+      `gen-tool-catalog: ${stale.length} manifest entr(ies) name a directory that does not exist: `
+      + `${stale.map(p => p.dir).join(', ')}.`,
     )
   }
 }

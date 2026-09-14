@@ -14,7 +14,7 @@ Existing Chat Nodes keep one presentation order throughout a page lifetime. Thei
 
 System prompt is independent of Turn Process: the initial prompt remains visible above the opening User and never receives process-member or process-hidden state. A later prompt first projected from a partial window retains that position when earlier request history loads. Context injection remains process content. When a Context or another potential process row has an event anchor before the opening User, Chat places it after that User from its first projection; once available, the process control occupies the stable position between the User and those rows. Without opening human input, the control stays before the earliest process candidate from its first appearance.
 
-The existing [Turn-process folding decision](../feature/2026-08-14-web-turn-process-folding.md) continues to own membership, completion, persistence, focus, and pagination behavior; this note supersedes only its earlier decision to fold System prompt and to defer pre-User process ordering until a mutable range included those rows.
+The existing [Turn-process folding decision](../../archived/feature/2026-08-14-web-turn-process-folding.md) continues to own membership, completion, persistence, focus, and pagination behavior; this note supersedes only its earlier decision to fold System prompt and to defer pre-User process ordering until a mutable range included those rows.
 
 ## Alternatives considered
 

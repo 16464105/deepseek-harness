@@ -38,7 +38,7 @@ The section reads and writes through the `mcp-manager` Remote; all writes apply 
 
 ## Model Experience
 
-None, as the package is a browser-side MCP settings layer that registers nothing model-facing.
+Indirectly, through each enabled server definition's child `mcp-client` fiber, which registers and renders its own discovered tools; this browser-side settings layer registers nothing model-facing itself.
 
 #### KV Cache effect
 

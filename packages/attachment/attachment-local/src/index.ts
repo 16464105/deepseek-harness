@@ -38,11 +38,8 @@ export const DEFAULT_MAX_IMAGES_PER_MESSAGE = 20
 export const DEFAULT_MAX_MESSAGE_IMAGE_BYTES = 200 * 1024 * 1024
 /** Default maximum intrinsic pixels for one submitted image. */
 export const DEFAULT_MAX_IMAGE_PIXELS = 64_000_000
-/** Default per-side pixel cap for one submitted image. The hard admission
- * bound is total decoded pixels (`DEFAULT_MAX_IMAGE_PIXELS`); this per-side
- * default only keeps pathological extreme-aspect images out of the durable
- * history, and deployments with laxer model routes may raise or remove it. */
-export const DEFAULT_MAX_IMAGE_DIMENSION = 16_384
+/** Default per-side pixel cap for one submitted image. */
+export const DEFAULT_MAX_IMAGE_DIMENSION = 8192
 /**
  * Default total-pixel budget of the stored normalized image. A larger source
  * is admitted and downscaled proportionally, so admission bounds what rides

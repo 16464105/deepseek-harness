@@ -9,9 +9,9 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Live browser preview overlay for the DSH web client: shows the model-driven Playwright page in a floating top-right popup, refreshed every 1.5 seconds. The Host half exposes a Remote service (`browserPopup`) with `shot` (binary-safe base64 screenshot), `pageInfo` (url/title), and `navigate`; the Client half occupies the `shell.overlay` slot and renders the screenshot on a canvas at native resolution (CSS scales for display).
+Live browser preview overlay for the DSH web client: shows the model-driven Playwright page in a floating top-right popup, refreshed every 1.5 seconds. The Host half exposes a Remote service (`browserPopup`) with `shot` (binary-safe base64 screenshot), `pageInfo` (url/title), and `navigate`; the Client half occupies the `shell.overlay` slot and draws the screenshot on a canvas at native resolution.
 
-The overlay is additive: it contributes one entry to the frame-wide `shell.overlay` list slot, never replaces shell chrome, and is click-through until expanded. It ships beside the `browser` tool suite (same `browser` service dependency) and only makes sense where the browser is enabled.
+The overlay is additive: it contributes one entry to the frame-wide `shell.overlay` list slot, never replaces shell chrome, and is click-through until expanded. It ships beside the `browser` tool suite and only makes sense where the browser is enabled.
 
 ## Table of Contents
 

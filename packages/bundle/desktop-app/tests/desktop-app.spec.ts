@@ -11,6 +11,7 @@ describe('desktop profile bundle', () => {
       'web-runtime',
       'connection',
       'client-hmr',
+      'attachment-local',
       'llm-deepseek',
       'agent-default-model',
     ].map(id => ({ id, name: `test-${id}` }))
@@ -32,6 +33,9 @@ describe('desktop profile bundle', () => {
       provider: 'tencent-internal',
       model: 'gpt-5.6-sol',
     })
+    // The deployment raises the per-side image bound through composition
+    // rather than a patched package default.
+    expect(rows.get('attachment-local')?.config).toEqual({ maxImageDimension: 16_384 })
     expect(rows.get('llm-deepseek')?.disabled).not.toBe(true)
     expect(rows.get('llm-tencent-codebuddy')?.name).toBe('@deepseek-ai/dsh-llm-tencent-codebuddy')
   })
