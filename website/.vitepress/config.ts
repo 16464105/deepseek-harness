@@ -303,7 +303,7 @@ export default withMermaid({
   },
   head: [
     // VitePress leaves head hrefs untouched, so the base belongs here explicitly.
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
+    ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
     ['style', {}, siteStyle],
     ['script', {}, scrollbarScript],
   ],

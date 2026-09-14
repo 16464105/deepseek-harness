@@ -18,18 +18,15 @@ it('ships install metadata with the built web application', async () => {
     scope: '/',
     display: 'fullscreen',
     icons: [{
-      src: '/favicon.svg',
-      sizes: 'any',
-      type: 'image/svg+xml',
+      src: '/favicon.png',
+      sizes: '192x192',
+      type: 'image/png',
       purpose: 'any',
     }],
   })
 })
 
-it('ships a favicon in DeepSeek brand blue for web chrome and desktop icons', async () => {
-  const favicon = await readFile(join(DIST_ROOT, 'favicon.svg'), 'utf8')
-  // Web chrome and the PWA manifest reuse this transparent brand-blue mark;
-  // desktop Dock/shell icons come from apps/desktop/build/icon.svg instead.
-  expect(favicon).toContain('fill="#4D6BFE"')
-  expect(favicon).not.toContain('fill="#000"')
+it('ships the operator artwork as the web favicon', async () => {
+  const favicon = await readFile(join(DIST_ROOT, 'favicon.png'))
+  expect(favicon.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
 })
