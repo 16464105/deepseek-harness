@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-storage-domain` is the typed way to use the storage family: an owning package declares a domain once — its name, format version, and zod record schemas — and host consumers open it over a routed backend and read and write records through `ctx.storageDomain`. Reads are synchronous from authoritative in-memory state; every write is durable before it resolves and emits a `domain/changed` event, so reads never diverge from the stored medium. It is the only consumer of the backend contract — product packages never touch backends directly. The layer is host-side only: it registers no tools, injects no prompts, and appends no session events, so the model and the agent loop never see it.
+Use this package to declare schema-validated key-value domains and open them through `ctx.storageDomain` over a configured storage backend. Reads return synchronously from validated in-memory state, while each write becomes durable before it resolves and emits `domain/changed` in order. Product packages use domain handles instead of accessing storage backends directly. This host-side state does not add tools, prompts, or session events, so it remains invisible to the model and agent loop.
 
 ## Table of Contents
 
@@ -70,7 +70,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### Observable behavior and failures
 
-Every write resolves only after the backend acknowledges durability, and each emits one `domain/changed` event in write order. Failures carry stable `DomainError` codes: `already-open` (the name is open or still closing), `facet-unsupported` (the routed backend serves no `kv` facet), `invalid-record` (a `single`-layout record or any global fails its schema, naming the table and key; a `per-record` table row that fails is omitted with a warning so one stale document cannot refuse the domain), `missing-key` (an `update` on an absent record), and `closed` (any use after close). Backend failures such as `version-mismatch` pass through unchanged.
+Every write resolves only after the backend acknowledges durability, and each emits one `domain/changed` event in write order. Failures carry stable `DomainError` codes: `already-open` (the name is open or still closing), `facet-unsupported` (the routed backend serves no `kv` facet), `invalid-record` (a stored record or global fails its schema, naming the table and key), `missing-key` (an `update` on an absent record), and `closed` (any use after close). Backend failures such as `version-mismatch` pass through unchanged.
 
 -----
 
@@ -91,7 +91,7 @@ The domain layer is a single implementation, not an abstracted seam: consumers d
 
 ### Open sequence
 
-`DomainFacility.open(spec)` runs a strict sequence, each step failing the whole call: reject a name already open or still closing (`already-open`); resolve the route (`backend-not-found`); require the `kv` facet (`facet-unsupported`); open the unit (backend `version-mismatch`/`malformed-medium` pass through); load and validate every stored record and the global against the spec's schemas; construct the domain. A `single`-layout record or any global that fails its schema rejects the open (`invalid-record`). A `per-record` table row that fails is omitted and warned, matching the json backend's discard of a malformed or differently versioned file. The caller owns the handle; the facility closes any domain left open when it unmounts, and a closed domain's name frees for reopening only after teardown completes.
+`DomainFacility.open(spec)` runs a strict sequence, each step failing the whole call: reject a name already open or still closing (`already-open`); resolve the route (`backend-not-found`); require the `kv` facet (`facet-unsupported`); open the unit (backend `version-mismatch`/`malformed-medium` pass through); load and validate every stored record and the global against the spec's schemas (`invalid-record`); construct the domain. The caller owns the handle; the facility closes any domain left open when it unmounts, and a closed domain's name frees for reopening only after teardown completes.
 
 ### Source map
 

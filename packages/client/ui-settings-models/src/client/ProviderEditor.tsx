@@ -28,7 +28,7 @@ import type {
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import {
-  DeepSeekModelsEditor, modelDrafts, validateModelRows,
+  DeepSeekModelsEditor, modelDrafts, validateDeepSeekModels,
 } from './DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
@@ -40,7 +40,7 @@ import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
-type EditorLayout = 'deepseek' | 'pi-ai' | 'tencent' | 'unknown'
+type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
 
 /** The public DeepSeek endpoint shown as the deepseek base-URL placeholder. */
 const DEEPSEEK_PUBLIC_BASE_URL = 'https://api.deepseek.com'
@@ -133,29 +133,7 @@ export function pathOps(
 function layoutOf(ns: string): EditorLayout {
   if (ns === 'llm-deepseek') return 'deepseek'
   if (ns === 'llm-pi-ai') return 'pi-ai'
-  if (ns === 'llm-tencent-codebuddy') return 'tencent'
   return 'unknown'
-}
-
-/**
- * Client-side validation aid: strip `reasoningEfforts` from every model row of
- * a draft so the rehydrated client schema can judge the rest of the section.
- * The persisted write keeps the full dict — the Host schema is authoritative.
- * @param draft - the draft the card is about to validate.
- * @returns the draft unchanged, or a copy without per-row `reasoningEfforts`.
- */
-function stripModelReasoningEfforts(draft: Record<string, unknown>): Record<string, unknown> {
-  const models = draft['models']
-  if (!Array.isArray(models) || models.length === 0) return draft
-  let stripped: number = 0
-  const next = models.map((row): unknown => {
-    if (typeof row !== 'object' || row === null || !('reasoningEfforts' in row)) return row
-    stripped += 1
-    const copy = { ...row as Record<string, unknown> }
-    Reflect.deleteProperty(copy, 'reasoningEfforts')
-    return copy
-  })
-  return stripped > 0 ? { ...draft, models: next } : draft
 }
 
 /** The credential reference this profile resolves keys through. */
@@ -235,7 +213,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
 
   // The model list is validated by the same per-row checker for both families,
   // so a bad row is named by its position rather than by a blanket message.
-  const modelFailure = validateModelRows(schema.getPath(draft, ['models']))
+  const modelFailure = validateDeepSeekModels(schema.getPath(draft, ['models']))
   const keyFailure = apiKeyFailure(keyDraft)
   // What a probe or a write must carry: the typed key with paste whitespace
   // removed. A blank field yields an empty string, which both call sites read
@@ -279,7 +257,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
       // with a bad row; it stays because the schema check below would refuse
       // the write with a message naming a path instead of the row, and because
       // nothing but this function decides what is written.
-      const failure = validateModelRows(schema.getPath(next, ['models']))
+      const failure = validateDeepSeekModels(schema.getPath(next, ['models']))
       /* v8 ignore next 3 -- unreachable from the card: the same failure disables submit */
       if (failure !== undefined) {
         return `${t('model')} ${String(failure.index + 1)}: ${t(failure.key)}`
@@ -288,19 +266,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
     /* v8 ignore next -- apply is only reachable from the rendered card, which required a resolved node */
     if (props.credentialOnly !== true && node !== undefined && settingsPath.length === 0) {
       const sectionError = schema.validate(node, next)
-      if (sectionError !== undefined) {
-        // This card never edits `reasoningEfforts` (a per-model capability the
-        // composer's picker owns), so a draft row can carry one only through
-        // default-catalog materialization. A serialized-schema drift between
-        // Host and client can make the rehydrated validator reject a dict the
-        // Host's own schema accepts; the stripped copy is a client-side
-        // validation aid only. The write must persist `next` unchanged: the
-        // Host's authoritative schema accepts the full dict, and dropping
-        // `reasoningEfforts` from the saved catalog would silently disable
-        // reasoning on every model it replaces.
-        const stripped = stripModelReasoningEfforts(next)
-        if (schema.validate(node, stripped) !== undefined) return sectionError
-      }
+      if (sectionError !== undefined) return sectionError
     }
     const materializesNativeProfile = layout === 'pi-ai'
       && fallback === undefined
@@ -366,7 +332,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
    * narrowed so the per-family branches below are total: an unknown namespace
    * renders the hint instead and never reaches this body.
    */
-  const curatedFields = (family: 'deepseek' | 'pi-ai' | 'tencent'): ReactNode => {
+  const curatedFields = (family: 'deepseek' | 'pi-ai'): ReactNode => {
     // What a hand-declared route names for itself and nothing else can supply.
     // A whole-section `llm-deepseek` profile is a composition fact with no
     // per-route identity for its schema to carry, hence the family test.
@@ -441,26 +407,22 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 </div>
               )
               : null}
-            {family === 'tencent'
-              ? null
-              : (
-                <div className={styles['field']}>
-                  <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
-                  <input
-                    className={styles['input']}
-                    type="text"
-                    value={stringAt(draft, 'baseURL') ?? ''}
-                    placeholder={family === 'deepseek'
-                      ? DEEPSEEK_PUBLIC_BASE_URL
-                      : stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
-                    aria-label={t('baseUrl')}
-                    disabled={disabled}
-                    onChange={(event) => {
-                      setField('baseURL', event.target.value === '' ? undefined : event.target.value)
-                    }}
-                  />
-                </div>
-              )}
+            <div className={styles['field']}>
+              <span className={styles['fieldLabel']}>{t('baseUrl')}</span>
+              <input
+                className={styles['input']}
+                type="text"
+                value={stringAt(draft, 'baseURL') ?? ''}
+                placeholder={family === 'deepseek'
+                  ? DEEPSEEK_PUBLIC_BASE_URL
+                  : stringAt(fallback, 'baseURL') ?? t('baseUrlDefault')}
+                aria-label={t('baseUrl')}
+                disabled={disabled}
+                onChange={(event) => {
+                  setField('baseURL', event.target.value === '' ? undefined : event.target.value)
+                }}
+              />
+            </div>
             {/* The protocol sits beside the endpoint it describes, as it does
                 on the create card. */}
             {ownsIdentity
@@ -486,11 +448,10 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                 </div>
               )
               : null}
-            {/* DeepSeek and Tencent edit the same fixed-directory rows through
-                the same contract — the inherited capacities differ, Tencent's
-                catalog carries its own — while only pi-ai can interrogate the
-                endpoint it points at. */}
-            {family === 'deepseek' || family === 'tencent'
+            {/* Both families edit the same rows through the same contract; only
+                the extras differ — DeepSeek's inherited capacities, pi-ai's
+                endpoint interrogation. */}
+            {family === 'deepseek'
               ? (
                 <DeepSeekModelsEditor
                   {...catalogProps}
@@ -498,15 +459,6 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
                     ? defaultContextWindow
                     : undefined}
                   defaultMaxTokens={typeof defaultMaxTokens === 'number' ? defaultMaxTokens : undefined}
-                  {...family === 'tencent'
-                    ? {
-                      newRowDefaults: {
-                        input: ['text', 'image'],
-                        reasoningEfforts: { low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' },
-                        compat: { thinkingFormat: 'openai', supportsReasoningEffort: true },
-                      },
-                    }
-                    : {}}
                 />
               )
               : (

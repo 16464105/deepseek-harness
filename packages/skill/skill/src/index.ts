@@ -474,15 +474,6 @@ export class SkillRegistry extends Service {
   }
 
   /**
-   * Drop completed discovery results so the next read asks every provider again.
-   * Filesystem watchers normally keep catalogs current; explicit user refreshes
-   * use this method when a missed or unavailable watch event is plausible.
-   */
-  refresh(): void {
-    this.invalidateCache()
-  }
-
-  /**
    * Observe the current invocation-neutral catalog and whether discovery completed within a stable revision.
    * Incomplete observations are never cached, allowing consumers to retain last-good state and
    * retry on their next request boundary.
@@ -653,6 +644,15 @@ export class SkillRegistry extends Service {
 
   private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number): string {
     return JSON.stringify({ cwd, scopes: chain.map(key => this.scopeId(key)), revision })
+  }
+
+  /**
+   * Drop every cached catalog observation so the next `list()` re-reads each
+   * provider. The Skills settings page calls this for its explicit refresh
+   * gesture, where a person expects a just-added file to appear.
+   */
+  refresh(): void {
+    this.invalidateCache()
   }
 
   /** Notify catalog observers without making their refresh work load-bearing. */

@@ -11,12 +11,13 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import {
   composeEntries,
   healProfilesModuleFallback,
   initProfile,
   loadProfile,
+  loadProfileDirectory,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
   readProfileManifest,
@@ -26,7 +27,16 @@ import {
   type Profile,
 } from '../src/index.ts'
 
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-profile-'))
+const tempRoots: string[] = []
+afterAll(() => {
+  for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+const tmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-profile-'))
+  tempRoots.push(dir)
+  return dir
+}
 
 /** Stage a fake installed app: package.json with deps and a node_modules holding bundles. */
 function stageInstallation(
@@ -154,6 +164,16 @@ describe('resolveBundleDir', () => {
 })
 
 describe('loadProfile', () => {
+  it('loads an explicitly owned profile directory outside CLI discovery', () => {
+    const anchor = stageInstallation({ 'bundle-a': { patch: '[]\n' } })
+    const dir = join(tmp(), 'managed', 'desktop')
+    initProfile(dir, ['bundle-a'])
+    const profile = loadProfileDirectory('managed app', dir, anchor)
+    expect(profile.dir).toBe(dir)
+    expect(profile.name).toBe('desktop')
+    expect(profile.layers.map(layer => layer.packageName)).toEqual(['bundle-a'])
+  })
+
   it('resolves each dsh.profile.bundles entry to its patch layer in order, plus the user layer', () => {
     const anchor = stageInstallation({
       'bundle-a': { patch: '- insert:\n    - id: a\n      name: pkg-a\n' },
@@ -186,7 +206,7 @@ describe('loadProfile', () => {
     const home = tmp()
     expect(() => loadProfile('t', 'custom', anchor, home))
       .toThrow('profile "custom" does not exist')
-    // Shipped templates auto-initialize on first load. Bundle resolution
+    // The web template auto-initializes on first load. Bundle resolution
     // cannot be asserted to fail here: the source-plane test runner resolves
     // @deepseek-ai/* through tsconfig paths regardless of the staged anchor.
     expect(PROFILE_TEMPLATES.web?.bundles).toContain('@deepseek-ai/dsh-base')
@@ -204,15 +224,6 @@ describe('loadProfile', () => {
       bundles: ['@deepseek-ai/dsh-sdk-minimal'],
       patchReload: 'startup',
     })
-    expect(PROFILE_TEMPLATES.desktop).toEqual({
-      bundles: [
-        '@deepseek-ai/dsh-base',
-        '@deepseek-ai/dsh-web-app',
-        '@deepseek-ai/dsh-desktop-app',
-        'dsh-better-sidebar',
-      ],
-      patchReload: 'live',
-    })
     try {
       loadProfile('t', 'web', anchor, home)
     } catch {
@@ -222,14 +233,6 @@ describe('loadProfile', () => {
       .toEqual([...PROFILE_TEMPLATES.web?.bundles ?? []])
     expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.patchReload)
       .toBe('live')
-
-    try {
-      loadProfile('t', 'desktop', anchor, home)
-    } catch {
-      // Resolution failure is the plain-Node outcome for this empty anchor.
-    }
-    expect(readProfileManifest('t', resolveProfileDir('desktop', home)).dsh?.profile?.bundles)
-      .toEqual([...PROFILE_TEMPLATES.desktop?.bundles ?? []])
   })
 
   it('normalizes only the exact installation-owned headless bundle tuple', () => {
@@ -261,29 +264,6 @@ describe('loadProfile', () => {
     loadProfile('t', 'headless', anchor, customHome)
     expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([
       '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
-    ])
-  })
-
-  it.each([
-    ['external browser and vision router', ['dsh-browser', 'dsh-vision-router']],
-    ['vision router', ['dsh-vision-router']],
-  ])('removes obsolete desktop bundles during migration: %s', (_label, obsolete) => {
-    const anchor = stageInstallation({
-      '@deepseek-ai/dsh-base': { patch: '[]\n' },
-      '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
-      '@deepseek-ai/dsh-desktop-app': { patch: '[]\n' },
-      'dsh-better-sidebar': { patch: '[]\n' },
-    })
-    const home = tmp()
-    const desktop = resolveProfileDir('desktop', home)
-    initProfile(desktop, [
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app',
-      ...obsolete, 'dsh-better-sidebar',
-    ])
-    loadProfile('t', 'desktop', anchor, home)
-    expect(readProfileManifest('t', desktop).dsh?.profile?.bundles).toEqual([
-      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app',
-      'dsh-better-sidebar',
     ])
   })
 
@@ -731,40 +711,6 @@ describe('healProfilesModuleFallback', () => {
     } finally {
       delete (process as NodeJS.Process & { pkg?: unknown }).pkg
     }
-  })
-
-  it('writes ESM proxies when installAnchor names an Electron asar path', async () => {
-    const root = tmp()
-    const appDir = join(root, 'Contents', 'Resources', 'app.asar')
-    const bundleDir = join(appDir, 'node_modules', 'bundle-a')
-    mkdirSync(bundleDir, { recursive: true })
-    writeFileSync(join(bundleDir, 'package.json'), JSON.stringify({
-      name: 'bundle-a',
-      version: '0.0.0',
-      type: 'module',
-      main: './index.js',
-    }))
-    writeFileSync(join(bundleDir, 'index.js'), 'export const packageName = "bundle-a"\n')
-    writeFileSync(join(appDir, 'package.json'), JSON.stringify({
-      name: 'dsh-app',
-      version: '0.0.0',
-      type: 'module',
-      main: './index.js',
-      dependencies: { 'bundle-a': '0.0.0' },
-    }))
-    writeFileSync(join(appDir, 'index.js'), 'export const packageName = "dsh-app"\n')
-    const anchor = join(appDir, 'package.json')
-    const home = tmp()
-    const fallback = join(home, 'profiles', 'node_modules', 'bundle-a')
-    // A prior Electron heal left OS symlinks into the asar; the next launch
-    // replaces them with proxies so roster health can see package.json.
-    mkdirSync(join(home, 'profiles', 'node_modules'), { recursive: true })
-    symlinkSync(bundleDir, fallback)
-
-    await healProfilesModuleFallback({ installAnchor: anchor, home })
-    expect(lstatSync(fallback).isSymbolicLink()).toBe(false)
-    expect(existsSync(join(fallback, 'package.json'))).toBe(true)
-    await expect(import(join(fallback, 'entry-0.js'))).resolves.toMatchObject({ packageName: 'bundle-a' })
   })
 
   it('resolves import-only exports from each package installation', async () => {

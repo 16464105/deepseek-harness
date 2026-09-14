@@ -81,9 +81,14 @@ beforeEach(() => {
 })
 
 describe('Tencent provider wiring', () => {
-  it('imports pi-ai helpers from the published package root', () => {
+  it('imports the adapter from the package root and auth helpers from their modules', () => {
+    // The pi-ai plugin exports only the adapter and its option types from the
+    // package root; the auth factories and the profile resolver stay on their
+    // own modules, so this adapter names those submodules directly.
     const source = readFileSync(fileURLToPath(new URL('../src/index.ts', import.meta.url)), 'utf8')
-    expect(source).not.toMatch(/@deepseek-ai\/dsh-llm-pi-ai\/src\//)
+    expect(source).toMatch(/import \{[^}]*PiAiAdapter[^}]*\} from '@deepseek-ai\/dsh-llm-pi-ai'/)
+    expect(source).toMatch(/from '@deepseek-ai\/dsh-llm-pi-ai\/src\/auth\.ts'/)
+    expect(source).toMatch(/from '@deepseek-ai\/dsh-llm-pi-ai\/src\/config\.ts'/)
   })
 
   it('resolves the fixed catalog and refreshes dynamic provider facts without re-registering', async () => {
@@ -108,7 +113,7 @@ describe('Tencent provider wiring', () => {
     expect(options.profiles()).toBe(options.profiles())
 
     // The fixed catalog is served unchanged when no model list is configured.
-    const piModels = initialProfile.piProvider.getModels()
+    const piModels = initialProfile.piProvider!.getModels()
     expect(piModels.length).toBeGreaterThan(1)
     expect(piModels.some(model => model.id === 'gpt-5.6-sol')).toBe(true)
 
@@ -121,15 +126,15 @@ describe('Tencent provider wiring', () => {
         model: 'gpt-5.6-sol',
         messages: [],
       },
-      profile: initialProfile,
-      model: piModels.find(model => model.id === 'gpt-5.6-sol'),
     } as unknown as Parameters<NonNullable<PiAiAdapterOptions['prepareRequest']>>[0]
     const prepared = options.prepareRequest?.(request)
     expect(prepared?.headers).toMatchObject({
       'x-agent-intent': 'craft',
       'x-ide-type': 'CLI',
     })
-    expect(await prepared?.onPayload?.({ messages: [] }, request.model))
+    // The payload hook receives pi-ai's model descriptor; the adapter forwards
+    // it unchanged, so the normalization is asserted against the raw payload.
+    expect(await prepared?.onPayload?.({ messages: [] }, undefined))
       .toMatchObject({ stream: true })
 
     state.launchEnvironment.get.mockReturnValue({ value: ' launch-key ' })
@@ -164,7 +169,7 @@ describe('Tencent provider wiring', () => {
     const options = state.adapterOptions[0]
     if (options === undefined) throw new Error('expected adapter options')
     const merged = profile(options)
-    const piModels = merged.piProvider.getModels()
+    const piModels = merged.piProvider!.getModels()
     expect(piModels.map(model => model.id)).toEqual(['gateway-extra'])
   })
 

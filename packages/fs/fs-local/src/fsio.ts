@@ -71,7 +71,7 @@ async function readFileAbortable(absolutePath: string, verb: 'read' | 'edit', si
 }
 
 /** Opaque version token from high-resolution identity and freshness metadata. */
-function versionOf(info: NormalizedStats): FsVersion {
+function versionOf(info: BigIntStats): FsVersion {
   return FsVersion(`${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`)
 }
 
@@ -193,7 +193,7 @@ export async function resolveLocalTarget(cwd: string, path: string): Promise<Loc
   }
 }
 
-function pathType(info: NormalizedStats): PathInfo['type'] {
+function pathType(info: Stats | BigIntStats): PathInfo['type'] {
   if (info.isFile()) return 'file'
   /* v8 ignore else -- Windows has no special-entry fixture for the non-directory branch. */
   if (info.isDirectory()) return 'directory'
@@ -201,82 +201,18 @@ function pathType(info: NormalizedStats): PathInfo['type'] {
   return 'other'
 }
 
-function pathLinkType(info: NormalizedStats): PathLinkInfo['type'] {
+function pathLinkType(info: Stats | BigIntStats): PathLinkInfo['type'] {
   if (info.isSymbolicLink()) return 'symlink'
   return pathType(info)
 }
 
-/**
- * Unified metadata view over bigint and plain `Stats` results. Electron's asar
- * fs patch returns a number-field `Stats` even for `{ bigint: true }` calls,
- * which breaks the bigint arithmetic in {@link versionOf} and the mode mask;
- * this shape normalizes both sources so callers always see bigint fields.
- */
-interface NormalizedStats {
-  dev: bigint
-  ino: bigint
-  size: bigint
-  mtimeNs: bigint
-  ctimeNs: bigint
-  mode: bigint
-  isFile(): boolean
-  isDirectory(): boolean
-  isSymbolicLink(): boolean
-}
-
-function normalizeBigIntStats(info: BigIntStats): NormalizedStats {
-  return {
-    dev: info.dev,
-    ino: info.ino,
-    size: info.size,
-    mtimeNs: info.mtimeNs,
-    ctimeNs: info.ctimeNs,
-    mode: info.mode,
-    isFile: () => info.isFile(),
-    isDirectory: () => info.isDirectory(),
-    isSymbolicLink: () => info.isSymbolicLink(),
-  }
-}
-
-/** The exact TypeError Electron's asar stat patch throws when it mixes plain-number fields with a bigint request. */
-function isBigIntMixingError(error: unknown): boolean {
-  return error instanceof TypeError && error.message.includes('Cannot mix BigInt and other types')
-}
-
-async function probeStats(
+async function probeStats<T extends Stats | BigIntStats>(
   absolutePath: string,
-  readStats: (path: string) => Promise<BigIntStats>,
-  fallbackReadStats: (path: string) => Promise<Stats>,
-): Promise<NormalizedStats | null> {
+  readStats: (path: string) => Promise<T>,
+): Promise<T | null> {
   try {
-    return normalizeBigIntStats(await readStats(absolutePath))
+    return await readStats(absolutePath)
   } catch (error: unknown) {
-    // Electron's asar patch cannot serve bigint stats; fall back to the plain
-    // form and widen its number fields. This keeps listing/reading skills and
-    // other packaged files working inside asar bundles.
-    if (isBigIntMixingError(error)) {
-      try {
-        const plain = await fallbackReadStats(absolutePath)
-        return {
-          dev: BigInt(plain.dev),
-          ino: BigInt(plain.ino),
-          size: BigInt(plain.size),
-          mtimeNs: BigInt(Math.floor(plain.mtimeMs)) * 1_000_000n,
-          ctimeNs: BigInt(Math.floor(plain.ctimeMs)) * 1_000_000n,
-          mode: BigInt(plain.mode),
-          isFile: () => plain.isFile(),
-          isDirectory: () => plain.isDirectory(),
-          isSymbolicLink: () => plain.isSymbolicLink(),
-        }
-      } catch (fallbackError: unknown) {
-        // ENOENT (no such file) and ENOTDIR (a parent segment is a file) both mean
-        // the target is absent; any other metadata failure is a real permission/IO
-        // fault.
-        /* v8 ignore next -- a non-ENOENT/ENOTDIR metadata failure needs a permission/IO fault; surface it. */
-        if (!isENOENT(fallbackError) && !isENOTDIR(fallbackError)) throw fallbackError
-        return null
-      }
-    }
     // ENOENT (no such file) and ENOTDIR (a parent segment is a file) both mean
     // the target is absent; any other metadata failure is a real permission/IO
     // fault.
@@ -292,7 +228,7 @@ async function probeStats(
  * @returns the metadata, or null when the path — or a parent segment — does not exist.
  */
 export async function probe(absolutePath: string): Promise<PathInfo | null> {
-  const info = await probeStats(absolutePath, path => stat(path, { bigint: true }), path => stat(path))
+  const info = await probeStats(absolutePath, path => stat(path, { bigint: true }))
   if (!info) return null
   return {
     version: versionOf(info),
@@ -308,7 +244,7 @@ export async function probe(absolutePath: string): Promise<PathInfo | null> {
  * @returns path-entry metadata, or null when the entry is absent.
  */
 export async function probeNoFollow(absolutePath: string): Promise<PathLinkInfo | null> {
-  const info = await probeStats(absolutePath, path => lstat(path, { bigint: true }), path => lstat(path))
+  const info = await probeStats(absolutePath, path => lstat(path, { bigint: true }))
   if (!info) return null
   return {
     version: versionOf(info),
@@ -485,6 +421,44 @@ export async function readWholeBytes(
   } catch (error: unknown) {
     /* v8 ignore next 2 -- a mid-stream abort needs cancellation racing an active read; pre-abort is deterministic. */
     if (isAbortError(error)) throw new FsError('read aborted', 'FS_ABORTED')
+    throw error
+  }
+  return Buffer.concat(chunks, bytes)
+}
+
+/**
+ * Read the bytes at `[offset, offset + length)` of a regular file with no
+ * decoding or binary rejection. The window is the bound: the stream opens at
+ * `offset` and closes after `length` bytes, so no more than the window is ever
+ * buffered whatever the file's size; a window at or past the end is empty.
+ * @param target - the resolved file to read.
+ * @param range - `offset`, the 0-based first byte, and `length`, the largest byte count.
+ * @param signal - aborts the read (`FS_ABORTED`).
+ * @returns the window's bytes, at most `length` long.
+ */
+export async function readByteWindow(
+  target: LocalTarget,
+  range: { offset: number; length: number },
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  await statRegularFile(target, 'read', signal)
+  if (range.length === 0) return new Uint8Array(0)
+  const stream = createReadStream(target.targetKey, {
+    start: range.offset,
+    end: range.offset + range.length - 1,
+    ...signal ? { signal } : {},
+  })
+  const chunks: Buffer[] = []
+  let bytes = 0
+  try {
+    for await (const chunk of stream as AsyncIterable<Buffer>) {
+      chunks.push(chunk)
+      bytes += chunk.length
+    }
+  } catch (error: unknown) {
+    /* v8 ignore next 2 -- a mid-stream abort needs cancellation racing an active read; pre-abort is deterministic. */
+    if (isAbortError(error)) throw new FsError('read aborted', 'FS_ABORTED')
+    /* v8 ignore next -- any other stream failure needs an I/O fault after a successful stat. */
     throw error
   }
   return Buffer.concat(chunks, bytes)

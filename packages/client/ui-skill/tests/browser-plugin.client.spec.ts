@@ -5,9 +5,9 @@
  * the source behavior contract driven directly on the captured source with
  * real ClientSessionContext projections — sessionId addressing, the
  * session-keyed catalog cache (single-flight per key, scope-birth warm
- * prewarm, connection/reset clear), startsWith filtering, RPC-failure
+ * prewarm, connection/reset clear), shared fuzzy name ranking, RPC-failure
  * rejection, pick → plain-text outcome (the plain-text-reference decision:
- * .agents/notes/implemented/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md),
+ * .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md),
  * the synchronous
  * lexicon reads over the settled cache, and the reference codec's two
  * projections. Direct driving is deliberate: this spec owns only the
@@ -23,16 +23,8 @@ import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientSessionContext, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { apply, inject } from '../src/client/index.ts'
 import { SkillRow as SkillToolRow } from '../src/client/SkillRow.tsx'
-import { en, zh } from '../src/client/locales.ts'
 
-type SkillRow = {
-  name: string
-  description: string
-  whenToUse?: string
-  modelInvocable?: boolean
-  source: string
-  provider: string
-}
+type SkillRow = { name: string; description: string; whenToUse?: string; modelInvocable?: boolean }
 type ListResult =
   | { ok: true; value: { skills: SkillRow[] } }
   | { ok: false; error: RemoteFailure }
@@ -84,9 +76,9 @@ async function bench(list: ListFn, addressed?: SessionId) {
 }
 
 const CATALOG: SkillRow[] = [
-  { name: 'commit-helper', description: 'commit flow', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
-  { name: 'code-review', description: 'review flow', whenToUse: 'reviews', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
-  { name: 'deploy', description: 'deploy flow', modelInvocable: true, source: 'bundled', provider: 'filesystem' },
+  { name: 'commit-helper', description: 'commit flow', modelInvocable: true },
+  { name: 'code-review', description: 'review flow', whenToUse: 'reviews', modelInvocable: true },
+  { name: 'deploy', description: 'deploy flow', modelInvocable: true },
 ]
 
 const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ ok: true as const, value: { skills } })
@@ -124,8 +116,30 @@ describe('apply', () => {
     expect(entry?.options).toMatchObject({ key: 'skill' })
     expect(entry?.locale).toBe('skill')
     expect(entry?.component).toBe(SkillToolRow)
+    // The namespace also carries the Skills settings page copy; the row keys
+    // below are the ones this plugin's tool row reads.
     expect(presentation.dictionaries).toEqual([{
-      namespace: 'skill', dictionaries: { zh, en },
+      namespace: 'skill',
+      dictionaries: {
+        zh: expect.objectContaining({
+          'row.title': 'Skill',
+          'row.running': '正在加载 skill',
+          'row.failed': 'skill 加载失败',
+          'row.stopped': 'skill 加载已中止',
+          'row.instructions': '说明',
+          'row.inspect': '查看',
+          'menu.userOnly': '仅用户',
+        }),
+        en: expect.objectContaining({
+          'row.title': 'Skill',
+          'row.running': 'Loading skill',
+          'row.failed': 'Skill load failed',
+          'row.stopped': 'Skill load stopped',
+          'row.instructions': 'Instructions',
+          'row.inspect': 'Inspect',
+          'menu.userOnly': 'user-only',
+        }),
+      },
     }])
   })
 
@@ -156,7 +170,7 @@ describe('apply', () => {
 })
 
 describe('candidates: sessionId addressing', () => {
-  it('lists via {sessionId} and filters by startsWith(query)', async () => {
+  it('lists via {sessionId} and ranks case-insensitive subsequence matches with prefixes first', async () => {
     const { list, payloads } = countingList()
     const { source } = await bench(list)
     const items = await source.candidates(proj('s1'), req('co'))
@@ -166,6 +180,11 @@ describe('candidates: sessionId addressing', () => {
       { name: 'commit-helper', description: 'commit flow' },
       { name: 'code-review', description: 'review flow' },
     ])
+    const names = async (query: string) => (await source.candidates(proj('s1'), req(query))).map(c => c.name)
+    // 'de' prefixes deploy and is a subsequence of code-review: the prefix ranks first.
+    await expect(names('de')).resolves.toEqual(['deploy', 'code-review'])
+    await expect(names('REV')).resolves.toEqual(['code-review'])
+    await expect(names('zzz')).resolves.toEqual([])
   })
 
   it('rejects on a failed result (the slash shell owns the menu-side fold)', async () => {
@@ -356,8 +375,8 @@ describe('pick lands plain text', () => {
 describe('user-only marking', () => {
   it('prefixes the description of candidates the model cannot invoke', async () => {
     const rows: SkillRow[] = [
-      { name: 'shared-skill', description: 'both surfaces', modelInvocable: true, source: 'project-dsh', provider: 'filesystem' },
-      { name: 'user-only-skill', description: 'user surface only', modelInvocable: false, source: 'user-dsh', provider: 'filesystem' },
+      { name: 'shared-skill', description: 'both surfaces', modelInvocable: true },
+      { name: 'user-only-skill', description: 'user surface only', modelInvocable: false },
     ]
     const { source } = await bench(listOk(rows))
     const candidates = await source.candidates(proj('s1'), req(''))

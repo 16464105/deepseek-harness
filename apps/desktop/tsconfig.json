@@ -4,13 +4,8 @@
     "rootDir": "src",
     "outDir": "lib/types"
   },
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "references": [
-    { "path": "../../apps/cli" },
-    { "path": "../../packages/boot/app-boot" },
-    { "path": "../../packages/client/connection/tsconfig.host.json" },
-    { "path": "../../packages/host/webserver" }
+    { "path": "../../packages/util/home-paths" }
   ]
 }

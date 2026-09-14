@@ -15,14 +15,10 @@
       "path": "../../../vendor/cordis"
     },
     {
-      "path": "../gateway/tsconfig.client.json"
-    },
-    {
       "path": "../../client/connection/tsconfig.client.json"
     },
     {
-      "path": "../../credentials/credentials"
-
+      "path": "../../client/file-upload/tsconfig.client.json"
     },
     {
       "path": "../../context/file-reference"
@@ -31,25 +27,37 @@
       "path": "../../context/session-reference"
     },
     {
+      "path": "../../credentials/credentials"
+    },
+    {
       "path": "../../extensions/cordis-host-runner"
     },
     {
-      "path": "../../goal/goal"
+      "path": "../../feedback/command-feedback"
     },
     {
       "path": "../../feedback/message-feedback"
     },
     {
-      "path": "../../host/plugin-inventory"
+      "path": "../../goal/goal"
     },
     {
-      "path": "../../mcp/mcp-manager"
+      "path": "../../host/plugin-inventory"
     },
     {
       "path": "../../interaction/commands"
     },
     {
+      "path": "../../interaction/user-approval"
+    },
+    {
+      "path": "../../interaction/user-questions"
+    },
+    {
       "path": "../../llm/llm"
+    },
+    {
+      "path": "../../mcp/mcp-manager"
     },
     {
       "path": "../../preset/agent-presets"
@@ -61,10 +69,10 @@
       "path": "../../subagent/subagent"
     },
     {
-      "path": "../../interaction/user-approval"
+      "path": "../../typert/protocol"
     },
     {
-      "path": "../../interaction/user-questions"
+      "path": "../gateway/tsconfig.client.json"
     },
     {
       "path": "../session-controller/tsconfig.client.json"
@@ -76,7 +84,7 @@
       "path": "../workspace-controller/tsconfig.client.json"
     },
     {
-      "path": "../../typert/protocol"
+      "path": "../workspace-files/tsconfig.client.json"
     }
   ]
 }

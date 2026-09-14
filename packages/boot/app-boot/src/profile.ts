@@ -34,6 +34,7 @@ import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import type { DshManifest, DshModuleFallbackManifest, ProfilePatchReload } from '@deepseek-ai/dsh-package-manifest'
 import { resolve as resolvePackage, type Package as ResolvePackageManifest } from 'resolve.exports'
 import { loadOverlayPatches } from './index.ts'
 
@@ -46,23 +47,6 @@ export const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 /** Profile-private package links projected into its pnpm-managed node_modules. */
 const PROFILE_MODULE_FALLBACK_DIR = '.dsh-module-fallback'
 
-/** The bundle half of the `dsh` manifest section: what a bundle package exports. */
-export interface DshBundleManifest {
-  /** The patch layer this bundle exports, relative to its package root. */
-  patch: string
-}
-
-/** The profile half of the `dsh` manifest section: what a profile directory composes. */
-export interface DshProfileManifest {
-  /** Ordered bundle layer list (package names). */
-  bundles?: string[]
-  /** Whether user patch files reload while this profile remains active. */
-  patchReload?: ProfilePatchReload
-}
-
-/** User patch-file lifecycle selected by a profile. */
-export type ProfilePatchReload = 'live' | 'startup'
-
 /** Installation-owned defaults used when a shipped profile is first opened. */
 export interface ProfileTemplate {
   /** Ordered bundle layer list. */
@@ -71,23 +55,12 @@ export interface ProfileTemplate {
   patchReload: ProfilePatchReload
 }
 
-/**
- * The profile-launcher slice of the `dsh`-owned package.json section. A
- * manifest may declare both roles; other consumers own additional keys.
- */
-export interface DshManifestSection {
-  /** Bundle metadata consumed by the profile launcher. */
-  bundle?: DshBundleManifest
-  /** Profile metadata consumed by the profile launcher. */
-  profile?: DshProfileManifest
-}
-
 /** The slice of package.json both profiles and bundles use. */
 export interface ProfileManifest {
   name?: string
   dependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
-  dsh?: DshManifestSection
+  dsh?: DshManifest
 }
 
 /** One resolved bundle layer of a profile. */
@@ -147,10 +120,6 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
     patchReload: 'startup',
   },
-  desktop: {
-    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app', 'dsh-better-sidebar'],
-    patchReload: 'live',
-  },
   sdk: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
     patchReload: 'startup',
@@ -164,27 +133,7 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
 /** Installation-owned bundle tuples normalized to the shipped template. */
 const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
-  desktop: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-app'],
 }
-
-/** Previous desktop templates whose installation-owned plugins are no longer shipped. */
-const LEGACY_DESKTOP_PROFILE_TUPLES: readonly (readonly string[])[] = [
-  [
-    '@deepseek-ai/dsh-base',
-    '@deepseek-ai/dsh-web-app',
-    '@deepseek-ai/dsh-desktop-app',
-    'dsh-browser',
-    'dsh-vision-router',
-    'dsh-better-sidebar',
-  ],
-  [
-    '@deepseek-ai/dsh-base',
-    '@deepseek-ai/dsh-web-app',
-    '@deepseek-ai/dsh-desktop-app',
-    'dsh-vision-router',
-    'dsh-better-sidebar',
-  ],
-]
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */
 export const DEFAULT_PROFILE_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-base']
@@ -359,7 +308,7 @@ interface ModuleProxyManifest {
   private: true
   type: 'module'
   exports: Record<string, string>
-  dsh: { moduleFallback: { targets: Record<string, string> } }
+  dsh: { moduleFallback: DshModuleFallbackManifest }
 }
 
 interface ModuleProxyRecord {
@@ -367,20 +316,9 @@ interface ModuleProxyRecord {
   dsh?: { moduleFallback?: { targets?: unknown } }
 }
 
-/**
- * Whether `$DSH_HOME/profiles/node_modules` must materialize ESM proxies
- * instead of OS symlinks for this installation.
- *
- * pkg's `/snapshot` and Electron's `app.asar` both expose package files only
- * through a virtual filesystem. An OS symlink into either path leaves
- * `existsSync` and some resolvers unable to see `package.json` when the
- * looked-up path still names the symlink rather than a path that contains
- * `.asar` or `/snapshot`.
- * @param installAnchor - absolute package.json path of the running installation.
- */
-function installationNeedsModuleProxies(installAnchor: string): boolean {
+/** Return whether the process reads application modules from pkg's virtual filesystem. */
+function isPackagedExecutable(): boolean {
   return (process as NodeJS.Process & { pkg?: unknown }).pkg !== undefined
-    || installAnchor.includes('.asar')
 }
 
 /** Resolve one available explicit package export under Node ESM import conditions. */
@@ -461,11 +399,10 @@ function packageProxySource(
 }
 
 /**
- * Materialize a real package proxy whose exports retain the installation's
- * virtual module URL. Files outside the executable cannot traverse a symlink
- * into pkg's `/snapshot` or Electron's `app.asar`, while an ESM re-export can
- * import that URL and preserves the executable's single module instance for
- * out-of-tree plugin peers.
+ * Materialize a real package proxy whose exports retain pkg's virtual module
+ * URL. Files outside the executable cannot traverse a symlink into
+ * `/snapshot`, while an ESM re-export can import that URL and preserves the
+ * executable's single module instance for out-of-tree plugin peers.
  */
 function ensureModuleProxy(
   link: string,
@@ -556,7 +493,7 @@ function resolveModuleFallbackEntries(
       queue.push({ anchor: manifestPath, manifest: readModuleFallbackManifest(manifestPath) })
     }
   }
-  const entries = !installationNeedsModuleProxies(installAnchor)
+  const entries = !isPackagedExecutable()
     ? [...links].map(([packageName, packageDir]) => ({ kind: 'symlink' as const, packageName, packageDir }))
     : [...links].flatMap(([packageName, packageDir]) => {
       const source = packageProxySource(packageName, packageDir)
@@ -603,13 +540,12 @@ export interface ProfileModuleFallbackOptions {
 /**
  * Maintain module fallbacks for one profile launch. The shared
  * `$DSH_HOME/profiles/node_modules` mirrors the dsh installation dependency
- * closure. Plain Node writes symlinks; a pkg snapshot or Electron `app.asar`
- * installation writes ESM proxies under a cross-process lock because
- * operating-system links cannot enter those virtual filesystems. Missing
- * packages carried only by selected bundles are linked through a
- * profile-owned directory into that profile's `node_modules`; pnpm-managed
- * entries remain authoritative, and another profile's links cannot change
- * its resolution.
+ * closure. Plain Node writes symlinks; a packaged executable writes ESM
+ * proxies under a cross-process lock because operating-system links cannot
+ * enter pkg's virtual filesystem. Missing packages carried only by selected
+ * bundles are linked through a profile-owned directory into that profile's
+ * `node_modules`; pnpm-managed entries remain authoritative, and another
+ * profile's links cannot change its resolution.
  * @param options - installation anchor, optional loaded profile, and Harness home.
  * @returns settlement after the shared fallback and profile-local links are current.
  */
@@ -761,11 +697,9 @@ function normalizeShippedProfile(name: string, dir: string, manifest: ProfileMan
   const bundles = manifest.dsh?.profile?.bundles
   if (template === undefined || bundles === undefined) return manifest
   const isRetiredTuple = installationOwned !== undefined && sameBundles(bundles, installationOwned)
-  const isLegacyDesktop = name === 'desktop'
-    && LEGACY_DESKTOP_PROFILE_TUPLES.some(tuple => sameBundles(bundles, tuple))
   const isCurrentTuple = sameBundles(bundles, template.bundles)
   const needsReloadDefault = manifest.dsh?.profile?.patchReload === undefined && isCurrentTuple
-  if (!isRetiredTuple && !isLegacyDesktop && !needsReloadDefault) return manifest
+  if (!isRetiredTuple && !needsReloadDefault) return manifest
   const normalized: ProfileManifest = {
     ...manifest,
     dsh: {
@@ -828,6 +762,48 @@ export function resolveBundleDir(
 }
 
 /**
+ * Load an already initialized profile directory without resolving it through
+ * the shared Harness home. This is used by application-owned profiles whose
+ * package project and lifecycle belong to that application.
+ * @param binName - the diagnostic prefix on thrown errors.
+ * @param dir - absolute profile package directory.
+ * @param installAnchor - absolute path of the owning dsh app's package.json.
+ * @param options - `userLayer: false` skips reading `cordis.patch.yml`.
+ * @returns the resolved bundle layers and optional user patch layer.
+ */
+export function loadProfileDirectory(
+  binName: string,
+  dir: string,
+  installAnchor: string,
+  options: { userLayer?: boolean } = {},
+): Profile {
+  const manifest = readProfileManifest(binName, dir)
+  const bundles = manifest.dsh?.profile?.bundles ?? []
+  const rawPatchReload: unknown = manifest.dsh?.profile?.patchReload
+  if (rawPatchReload !== undefined && rawPatchReload !== 'live' && rawPatchReload !== 'startup') {
+    throw new Error(
+      `${binName}: profile manifest ${join(dir, 'package.json')} dsh.profile.patchReload must be "live" or "startup"`,
+    )
+  }
+  const patchReload = rawPatchReload ?? DEFAULT_PROFILE_PATCH_RELOAD
+  const layers = bundles.map((packageName): ProfileLayer => {
+    const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
+    const bundleManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as ProfileManifest
+    const declared = bundleManifest.dsh?.bundle?.patch
+    if (declared === undefined) {
+      throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} declares no dsh.bundle in its package.json`)
+    }
+    const patchPath = join(packageDir, declared)
+    return { packageName, packageDir, patchPath, patches: loadOverlayPatches(binName, patchPath) }
+  })
+  const patchPath = join(dir, PROFILE_PATCH_FILENAME)
+  const patches = options.userLayer !== false && existsSync(patchPath)
+    ? loadOverlayPatches(binName, patchPath)
+    : []
+  return { name: basename(dir), dir, layers, patchPath, patches, patchReload }
+}
+
+/**
  * Load a profile: resolve every `dsh.profile.bundles` entry to its patch
  * layer and parse the profile's own patch file. A listed bundle without a
  * `dsh.bundle` manifest fails loud — naming a bundle-less package as a layer
@@ -855,31 +831,8 @@ export function loadProfile(
     }
     initProfile(dir, template.bundles, template.patchReload)
   }
-  const manifest = normalizeShippedProfile(name, dir, readProfileManifest(binName, dir))
-  // A hand-written profile manifest may omit the dsh section entirely.
-  const bundles = manifest.dsh?.profile?.bundles ?? []
-  const rawPatchReload: unknown = manifest.dsh?.profile?.patchReload
-  if (rawPatchReload !== undefined && rawPatchReload !== 'live' && rawPatchReload !== 'startup') {
-    throw new Error(
-      `${binName}: profile manifest ${join(dir, 'package.json')} dsh.profile.patchReload must be "live" or "startup"`,
-    )
-  }
-  const patchReload = rawPatchReload ?? DEFAULT_PROFILE_PATCH_RELOAD
-  const layers = bundles.map((packageName): ProfileLayer => {
-    const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
-    const bundleManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as ProfileManifest
-    const declared = bundleManifest.dsh?.bundle?.patch
-    if (declared === undefined) {
-      throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} declares no dsh.bundle in its package.json`)
-    }
-    const patchPath = join(packageDir, declared)
-    return { packageName, packageDir, patchPath, patches: loadOverlayPatches(binName, patchPath) }
-  })
-  const patchPath = join(dir, PROFILE_PATCH_FILENAME)
-  const patches = options.userLayer !== false && existsSync(patchPath)
-    ? loadOverlayPatches(binName, patchPath)
-    : []
-  return { name, dir, layers, patchPath, patches, patchReload }
+  normalizeShippedProfile(name, dir, readProfileManifest(binName, dir))
+  return loadProfileDirectory(binName, dir, installAnchor, options)
 }
 
 /**

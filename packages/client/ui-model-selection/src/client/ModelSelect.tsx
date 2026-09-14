@@ -12,16 +12,17 @@
  * card; the in-menu strip with Retry remains the catalog-load surface.
  */
 import {
-  useEffect, useId, useMemo, useRef, useState, useSyncExternalStore,
-  type KeyboardEvent, type FocusEvent,
+  useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
+  type CSSProperties, type KeyboardEvent, type FocusEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import type {
   ModelCatalogModel, ModelReasoningEffort, ModelSelection,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   IconCheckOutline16, IconChevronDownOutline14, IconChevronRightOutline14,
-  IconWarningOutline16, Toast,
+  IconDataOutline16, IconWarningOutline16, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
@@ -42,6 +43,9 @@ function rejectsImage(model: ModelCatalogModel | undefined): boolean {
   return model?.inputModalities !== undefined && !model.inputModalities.includes('image')
 }
 
+/** Unplaced portal card: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real (Menu primitive's measure pass). */
+const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
+
 /**
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
@@ -58,7 +62,6 @@ export function ModelSelect(
   )
   const [open, setOpen] = useState(false)
   const [pane, setPane] = useState<Pane>('root')
-  const draftRequiresImage = useInput(input => input.imageIds.length > 0)
   // The in-menu error strip serves catalog loads (its Retry re-runs the
   // load); a rejected SELECTION announces through the transient toast
   // instead, so the strip renders only while the latest failure-capable
@@ -68,6 +71,8 @@ export function ModelSelect(
   const toastSeq = useRef(0)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [menuPos, setMenuPos] = useState<CSSProperties | null>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const id = useId()
 
@@ -87,8 +92,6 @@ export function ModelSelect(
     ? -1
     : choices.findIndex(c => c.selection.provider === state.current?.provider && c.selection.model === state.current.model)
   const currentChoice = choices[selectedIndex]
-  const imageRequired = state.requiresImageInput || draftRequiresImage
-  const currentRejectsImage = rejectsImage(currentChoice?.model)
   const reasoning = currentChoice?.model.reasoning
   const effectiveEffort = state.current?.reasoningEffort ?? reasoning?.defaultEffort
   const effortLabel = reasoning === undefined
@@ -109,6 +112,9 @@ export function ModelSelect(
       })),
     ], [reasoning, t])
   const busy = state.status === 'selecting'
+  const draftRequiresImage = useInput(input => input.attachmentIds.length > 0)
+  const imageRequired = state.requiresImageInput || draftRequiresImage
+  const currentRejectsImage = rejectsImage(currentChoice?.model)
 
   useEffect(() => {
     if (!available || locked || !imageRequired || !currentRejectsImage) return
@@ -124,11 +130,48 @@ export function ModelSelect(
   useEffect(() => {
     if (!open) return
     const closeOutside = (event: MouseEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
+      // The portaled card is outside the trigger subtree; check both.
+      if (rootRef.current?.contains(event.target as Node) === true) return
+      if (menuRef.current?.contains(event.target as Node) === true) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', closeOutside)
     return () => { document.removeEventListener('mousedown', closeOutside) }
   }, [open])
+
+  // Portaled placement (the Menu primitive's portal rules: fixed from the
+  // anchor rect, measured before paint, clamped inside the viewport): above
+  // the trigger, right edges aligned. Depends on pane and directory state
+  // because pane switches and async catalog loads resize the card.
+  /* jscpd:ignore-start -- deliberate mirror of ui-primitives useAnchoredPosition:
+     that hook only places from the anchor's LEFT edge, while this card aligns
+     right edges (x = rect.right - width), so the measure-and-clamp plumbing repeats. */
+  useLayoutEffect(() => {
+    if (!open) { setMenuPos(null); return }
+    const place = (): void => {
+      /* v8 ignore next 2 -- the trigger ref is attached whenever the menu is open. */
+      const rect = triggerRef.current?.getBoundingClientRect()
+      if (rect === undefined) return
+      const MARGIN = 12
+      const lw = menuRef.current?.offsetWidth ?? 0
+      const lh = menuRef.current?.offsetHeight ?? 0
+      let x = rect.right - lw
+      let y = rect.top - 8 - lh
+      if (lw > 0) x = Math.min(Math.max(x, MARGIN), window.innerWidth - lw - MARGIN)
+      if (lh > 0) y = Math.min(Math.max(y, MARGIN), window.innerHeight - lh - MARGIN)
+      setMenuPos({ left: x, top: y })
+    }
+    // First run measures the hidden pre-render (same commit as `open`), so
+    // the card lands placed before anything paints.
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [open, pane, state])
+  /* jscpd:ignore-end */
 
   if (!available) return null
 
@@ -168,7 +211,10 @@ export function ModelSelect(
   }
 
   const onBlur = (event: FocusEvent<HTMLDivElement>): void => {
-    if (event.relatedTarget instanceof Node && rootRef.current?.contains(event.relatedTarget)) return
+    if (event.relatedTarget instanceof Node && (
+      rootRef.current?.contains(event.relatedTarget) === true
+      || menuRef.current?.contains(event.relatedTarget) === true
+    )) return
     close()
   }
 
@@ -248,15 +294,21 @@ export function ModelSelect(
           }
         }}
       >
+        <IconDataOutline16 className={css.triggerIcon} size={16} />
         <span className={css.triggerLabel}>{modelLabel}</span>
         {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
         <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
       </button>
 
-      {open && (
+      {/* Portaled to body (Menu primitive's portal mode) so the sidebar and
+          column overflow clips cannot crop the card; synthetic events still
+          bubble through this React subtree, keeping onKeyDown/onBlur live. */}
+      {open && createPortal(
         <div
+          ref={menuRef}
           id={`${id}-menu`}
           className={css.menu}
+          style={menuPos ?? MEASURE_STYLE}
           role="menu"
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
@@ -280,11 +332,11 @@ export function ModelSelect(
 
           {pane === 'model' && (
             <>
-              {state.status === 'loading' && (
-                <div className={css.status}>{t('status.loading')}</div>
-              )}
               {imageRequired && (
                 <div className={css.requirement}>{t('status.imageRequired')}</div>
+              )}
+              {state.status === 'loading' && (
+                <div className={css.status}>{t('status.loading')}</div>
               )}
               {state.error !== null && lastActionRef.current === 'load' && (
                 <div className={css.error}>
@@ -306,6 +358,8 @@ export function ModelSelect(
                       <div className={css.groupTitle} id={headingId}>{group.name}</div>
                       {group.models.map((model) => {
                         const selected = state.current?.provider === group.id && state.current.model === model.id
+                        // Only an explicit text-only declaration blocks: an
+                        // undeclared modality list leaves the model selectable.
                         const imageUnavailable = imageRequired && rejectsImage(model)
                         return (
                           <button
@@ -378,7 +432,8 @@ export function ModelSelect(
                 ))}
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
       {toast !== null && (
         <Toast

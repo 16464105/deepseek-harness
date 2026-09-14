@@ -30,6 +30,7 @@ export interface ProviderDirectoryEntry {
   readonly settingsPath: readonly string[]
   readonly active: boolean
   readonly declared?: boolean
+  readonly error?: string
 }
 
 /**
@@ -51,6 +52,7 @@ export function joinProviderDirectory(
     settingsPath: [...entry.settingsPath],
     active: active.has(entry.provider),
     ...entry.declared === undefined ? {} : { declared: entry.declared },
+    ...entry.error === undefined ? {} : { error: entry.error },
   }))
   for (const provider of registered) {
     if (declared.has(provider.id)) continue
@@ -273,8 +275,11 @@ export type OnboardingReadiness =
   | { kind: 'provider-ready' }
   | {
     kind: 'credential-missing'
+    /** Provider route the missing credential belongs to. */
     provider: string
+    /** Settings namespace that stores the credential reference. */
     settingsNs: string
+    /** Path inside the namespace document. */
     settingsPath: readonly string[]
   }
   | {
@@ -291,9 +296,9 @@ export type OnboardingReadiness =
  * Project first-run readiness from the provider/settings/credential join used
  * by the Models page. The step exists to leave the user with a model to talk
  * to, so ANY usable provider ends it; only when none exists does the official
- * supported key-only route decides whether prompting can help. Tencent
- * CodeBuddy is first when both desktop targets are composed, with official
- * DeepSeek as the fallback for deployments that omit Tencent.
+ * DeepSeek route — the one route the prompt can offer a key field for — decide
+ * whether prompting can help. A missing official configurable-provider
+ * declaration means the adapter is not repairable by navigating to Models.
  * @param state - current shared Models join snapshot.
  * @returns the onboarding state without reading a parallel fact source.
  */
@@ -308,15 +313,10 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
-  const targets = [
-    { provider: 'tencent-internal', settingsNs: 'llm-tencent-codebuddy' },
-    { provider: 'deepseek-official', settingsNs: 'llm-deepseek' },
-  ] as const
-  const candidates = targets.flatMap(target => state.rows.filter(candidate =>
-    candidate.entry.provider === target.provider
-    && candidate.entry.settingsNs === target.settingsNs
-    && candidate.entry.settingsPath.length === 0))
-  const row = candidates.find(candidate => candidate.entry.active) ?? candidates[0]
+  const row = state.rows.find(candidate =>
+    candidate.entry.provider === 'deepseek-official'
+    && candidate.entry.settingsNs === 'llm-deepseek'
+    && candidate.entry.settingsPath.length === 0)
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {

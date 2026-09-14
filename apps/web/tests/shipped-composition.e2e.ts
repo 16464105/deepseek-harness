@@ -36,12 +36,6 @@ const FILE_REFERENCE_PROMPT = fileURLToPath(new URL(
 const EXPECTED_TOOLS = [
   'ask_user_question',
   'bash',
-  'browser_click',
-  'browser_navigate',
-  'browser_press_key',
-  'browser_screenshot',
-  'browser_snapshot',
-  'browser_type',
   'create_goal',
   'edit',
   'exit_plan_mode',
@@ -51,6 +45,7 @@ const EXPECTED_TOOLS = [
   'job_list',
   'job_output',
   'list_agents',
+  'present',
   'ralph',
   'read',
   'read_image',
@@ -73,16 +68,6 @@ const EXPECTED_TOOLS = [
  * dependency.
  */
 const RIPGREP_TOOLS = ['glob', 'grep']
-
-/** The web-plane browser suite, enabled on the global host layer. */
-const BROWSER_TOOLS = [
-  'browser_click',
-  'browser_navigate',
-  'browser_press_key',
-  'browser_screenshot',
-  'browser_snapshot',
-  'browser_type',
-]
 
 let scaffold: WebScaffold | undefined
 
@@ -158,13 +143,11 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
     }
   `)
   // The catalog belongs to an AGENT, not to the process: every model-facing row
-  // lives in a preset mounted under one session's scope. The one exception is
-  // the web-plane browser tool suite, which the web-app layer enables on the
-  // global host layer (see the browser-tools Agent Note). This composes from
-  // the deployment default — what a session that names no preset gets.
-  expect(ctx.tools.schemas().map(schema => schema.name).sort()).toEqual([
-    ...BROWSER_TOOLS,
-  ].sort())
+  // now lives in a preset mounted under one session's scope, so the global
+  // layer holds nothing and a caller must name the agent to see anything. This
+  // composes from the deployment default — what a session that names no preset
+  // gets — which is the shape this test has always been about.
+  expect(ctx.tools.schemas().map(schema => schema.name)).toEqual([])
   const handle = await ctx.agents.create({
     sessionId: SessionId('shipped-composition'),
     setup: agentCtx => ctx.agentPresets.mount(agentCtx).then(() => undefined),

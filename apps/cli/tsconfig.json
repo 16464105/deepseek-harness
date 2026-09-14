@@ -27,9 +27,6 @@
       "path": "../../packages/bundle/base"
     },
     {
-      "path": "../../packages/bundle/desktop-app"
-    },
-    {
       "path": "../../packages/bundle/headless"
     },
     {

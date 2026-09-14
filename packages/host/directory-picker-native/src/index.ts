@@ -2,9 +2,10 @@
  * Native backend of the directory-picker seam: registers `ctx.directoryPicker`
  * with the `native` capability, opening one native OS chooser on the host
  * display per pick (macOS `osascript`, Linux Zenity with a KDialog fallback;
- * Windows opens Electron's main-process directory chooser inside the
- * packaged desktop Host, and the modern `IFileOpenDialog` in a spawned
- * koffi child on plain Node). Only viable when
+ * Windows opens the modern `IFileOpenDialog` in a spawned child process — a
+ * koffi-driven COM conversation on the child's main thread, preceded by a
+ * synthesized Alt press so the dialog activates as foreground even when a
+ * background host spawned the child). Only viable when
  * the operator sits at the host's screen; remote deployments compose the
  * browse backend instead.
  * @module @deepseek-ai/dsh-host-directory-picker-native

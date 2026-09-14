@@ -80,7 +80,7 @@ export function SkillSettingsSection({
 
   const normalized = query.trim().toLocaleLowerCase()
   const filtered = useMemo(() => state.status === 'ready'
-    ? state.skills.filter(skill => [skill.name, skill.description, skill.provider]
+    ? state.skills.filter(skill => [skill.name, skill.description, skill.provider ?? '']
       .some(value => value.toLocaleLowerCase().includes(normalized)))
     : [], [normalized, state])
 
@@ -145,8 +145,8 @@ export function SkillSettingsSection({
           {filtered.length === 0 ? <p className={css.status}>{t(normalized === '' ? 'settings.empty' : 'settings.emptySearch')}</p> : null}
           <ul className={css.list}>
             {filtered.map((skill) => {
-              const sourceKey = (SOURCE_KEYS as Partial<Record<string, SkillKey>>)[skill.source]
-              const source = sourceKey === undefined ? skill.source : t(sourceKey)
+              const sourceKey = (SOURCE_KEYS as Partial<Record<string, SkillKey>>)[skill.source ?? '']
+              const source = sourceKey === undefined ? skill.source ?? '' : t(sourceKey)
               return (
                 <li className={css.row} key={skill.name}>
                   <div className={css.details}>

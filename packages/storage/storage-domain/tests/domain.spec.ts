@@ -58,6 +58,25 @@ describe('defineDomain', () => {
     })).toThrow(/must not accept null/)
   })
 
+  it('validates compatibleVersions entries and projects them onto the descriptor', () => {
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [1.5], tables: {} }))
+      .toThrow(/compatibleVersions/)
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [2], tables: {} }))
+      .toThrow(/below version/)
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [-1], tables: {} }))
+      .toThrow(/compatibleVersions/)
+    expect(descriptorOf(defineDomain({ name: 'ok', version: 2, compatibleVersions: [0, 1], tables: {} })))
+      .toMatchObject({ compatibleVersions: [0, 1] })
+    // An undeclared set is absent from the descriptor.
+    expect(descriptorOf(spec)).not.toHaveProperty('compatibleVersions')
+  })
+
+  it('rejects an unknown invalidRecords policy', () => {
+    expect(() => defineDomain({
+      name: 'ok', version: 1, invalidRecords: 'zap' as 'backup-and-skip', tables: {},
+    })).toThrow(/invalidRecords/)
+  })
+
   it('rejects an invalid layout and projects the declared one onto the descriptor', () => {
     // A spec built from config can carry any value; the union type is
     // compile-time only, so the runtime boundary check must reject it.
@@ -139,47 +158,25 @@ describe('DomainFacility.open', () => {
     })
   })
 
-  it('discards a schema-invalid per-record row and keeps the rest of the domain', async () => {
-    const perSpec = defineDomain({
-      name: 'percache',
+  it('keeps the rejecting default under backup-and-skip when the backend cannot move documents', async () => {
+    // The memory backend has no backupRecord, so the declared policy cannot
+    // apply and the open falls back to failing loud.
+    const salvageSpec = defineDomain({
+      name: 'salvage',
       version: 1,
-      layout: 'per-record',
+      invalidRecords: 'backup-and-skip',
       tables: { items: domainTable<string, Item>(itemSchema) },
     })
     const pool = new MemoryMediaPool()
-    pool.versions.set('percache', 1)
-    pool.media.set('percache', {
-      tables: new Map([['items', new Map<string, unknown>([
-        ['good', { label: 'ok', count: 1 }],
-        ['bad', { label: 'x', count: 'NaN' }],
-      ])]]),
-      global: null,
-    })
-    const { ctx, facility } = await harness({ pool })
-    const warn = vi.spyOn(ctx.logger, 'warn')
-    const domain = await facility.open(perSpec)
-    expect(domain.table('items').get('good')).toEqual({ label: 'ok', count: 1 })
-    expect(domain.table('items').get('bad')).toBeUndefined()
-    expect(warn).toHaveBeenCalledWith(
-      "domain 'percache': discarding stored record 'bad' in table 'items' that does not match its schema",
-    )
-  })
-
-  it('still rejects a schema-invalid global on a per-record domain', async () => {
-    const perSpec = defineDomain({
-      name: 'perglobal',
-      version: 1,
-      layout: 'per-record',
-      global: { schema: settingsSchema, initial: { theme: 'plain' } },
-      tables: { items: domainTable<string, Item>(itemSchema) },
-    })
-    const pool = new MemoryMediaPool()
-    pool.versions.set('perglobal', 1)
-    pool.media.set('perglobal', { tables: new Map(), global: { theme: 42 } })
+    {
+      const { facility } = await harness({ pool })
+      await (await facility.open(salvageSpec)).table('items').put('bad', { label: 'x', count: 2 })
+    }
+    pool.media.get('salvage')!.tables.get('items')!.set('bad', { label: 'x', count: 'NaN' })
     const { facility } = await harness({ pool })
-    await expect(facility.open(perSpec)).rejects.toMatchObject({
+    await expect(facility.open(salvageSpec)).rejects.toMatchObject({
       code: 'invalid-record',
-      detail: { table: '', key: '' },
+      detail: { table: 'items', key: 'bad' },
     })
   })
 

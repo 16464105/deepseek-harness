@@ -13,7 +13,11 @@ const unusedHook = (() => { throw new Error('unused by Skill settings') }) as ne
 type AttentionSnapshot = Parameters<Parameters<SkillSettingsProps['useSessionPendingInteraction']>[0]>[0]
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: SkillSettingsProps['useSessionPendingInteraction'] = selector => selector(noAttention)
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction }
+/** Panel seat: this section renders in the settings pane, so no panel is active. */
+const usePanelInfo: SkillSettingsProps['usePanelInfo'] = selector => selector({ activePanelId: null })
+/** Resource seat: the section reads no `file`-provider resource. */
+const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined })) as SkillSettingsProps['useResource']
+const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction, usePanelInfo, useResource }
 const SKILLS: SkillEntry[] = [
   {
     name: 'project-review',

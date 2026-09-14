@@ -10,15 +10,9 @@
     - button "插件":
       - img
       - text: 插件
-    - button "Skills":
-      - img
-      - text: Skills
     - button "Agent 预设":
       - img
       - text: Agent 预设
-    - button "MCP":
-      - img
-      - text: MCP
   - button "打开配置文件"
   - button "关闭":
     - img
@@ -49,7 +43,7 @@
         - text: 复制
     - listitem:
       - 'button "设为默认: 极简模式"':
-        - text: 极简模式 内置 仅提供持久 bash 与 str_replace_editor 的双工具编码 Agent。
+        - text: 极简模式 内置 仅提供持久 shell 的单工具编码 Agent。
         - code: minimal
       - 'button "查看: 极简模式"':
         - img

@@ -38,7 +38,7 @@ const CAPACITY_SCALE = { k: 1_000, m: 1_000_000 } as const
  * zeroes. The stored value stays a plain token count.
  * @param text - raw field text.
  * @returns the count; `undefined` when blank (inherit), `NaN` when unreadable
- * (rejected by {@link validateModelRows} before any write).
+ * (rejected by {@link validateDeepSeekModels} before any write).
  */
 export function parseCapacity(text: string): number | undefined {
   const trimmed = text.trim()
@@ -69,7 +69,7 @@ export function formatCapacity(value: number): string {
 }
 
 /** A localized validation failure for one user-owned model array. */
-export interface ModelRowsValidationFailure {
+export interface DeepSeekModelsValidationFailure {
   /** Zero-based model position. */
   index: number
   /** Message key owned by the Models settings section. */
@@ -91,7 +91,7 @@ export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
  * @param value - user-owned `models` value, or undefined while inherited.
  * @returns the first invalid row, or undefined when the adapter will accept it.
  */
-export function validateModelRows(value: unknown): ModelRowsValidationFailure | undefined {
+export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidationFailure | undefined {
   if (value === undefined) return undefined
   const models = modelDrafts(value)
   const seen = new Set<string>()
@@ -132,12 +132,6 @@ export interface DeepSeekModelsEditorProps {
   defaultContextWindow: number | undefined
   /** Fallback output cap used when a row omits its exact value. */
   defaultMaxTokens: number | undefined
-  /**
-   * Fields seeded on a newly added row beyond its id. DeepSeek's advisory
-   * catalog has none, while Tencent's fixed directory seeds image input and the
-   * full reasoning effort ladder so a hand-added model can actually use them.
-   */
-  newRowDefaults?: DeepSeekModelDraft
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable every mutation. */
@@ -360,7 +354,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
         type="button"
         className={styles['addModelButton']}
         disabled={props.disabled}
-        onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '', ...props.newRowDefaults }]) }}
+        onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '' }]) }}
       >
         <IconPlusOutline16 size={14} />
         {props.t('addModel')}

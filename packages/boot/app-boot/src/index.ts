@@ -6,7 +6,6 @@
  * @module @deepseek-ai/dsh-app-boot
  */
 
-import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { parseEnv } from 'node:util'
@@ -17,7 +16,6 @@ import Loader, { type Entry, type EntryOptions } from '@deepseek-ai/cordis-plugi
 import Include, { applyEntryPatches, entryListSchema, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import Group from '@deepseek-ai/cordis-plugin-group'
 import { dshHomePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { installInstallationResolveHook } from './installation-resolve-hook.ts'
 import { createLaunchEnvironmentSnapshot, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import type {} from '@deepseek-ai/cordis-plugin-hmr'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -29,7 +27,6 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export { installInstallationResolveHook } from './installation-resolve-hook.ts'
 export {
   composeEntries,
   DEFAULT_PROFILE_BUNDLES,
@@ -37,6 +34,7 @@ export {
   healProfilesModuleFallback,
   initProfile,
   loadProfile,
+  loadProfileDirectory,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
   PROFILES_DIR,
@@ -44,14 +42,10 @@ export {
   resolveBundleDir,
   resolveProfileDir,
   writeProfileManifest,
-  type DshBundleManifest,
-  type DshManifestSection,
-  type DshProfileManifest,
   type Profile,
   type ProfileLayer,
   type ProfileManifest,
   type ProfileModuleFallbackOptions,
-  type ProfilePatchReload,
   type ProfileTemplate,
 } from './profile.ts'
 
@@ -123,8 +117,18 @@ const BOOTSTRAP_NAMES = new Set([
 const BOOTSTRAP_PREFIXES = ['DSH_', 'XDG_', 'DYLD_', 'BASH_FUNC_']
 
 /**
+ * The bootstrap names the Harness-home `.env` alone may set. A proxy chooses the route every
+ * request takes, so the invoking directory's file — which arrives with a clone — keeps refusing
+ * them; the home file is the user's own, and `DSH_HOME` is itself bootstrap-only, so no `.env` can
+ * relocate this exemption. The CA and TLS names in the same group stay refused everywhere: they
+ * change what is trusted, not where traffic goes.
+ */
+const HOME_LAYER_PROXY_NAMES = new Set(['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY'])
+
+/**
  * Whether a variable may come only from the inherited process environment
- * because it changes process, runtime, VCS, or network bootstrap.
+ * because it changes process, runtime, VCS, or network bootstrap. The Harness-home
+ * file is additionally allowed {@link HOME_LAYER_PROXY_NAMES}.
  * @param name - the variable name.
  * @returns true when only the inherited environment may supply it.
  */
@@ -139,13 +143,15 @@ function isBootstrapOnly(name: string): boolean {
  * @param binName - the diagnostic prefix on the thrown error.
  * @param dir - the directory whose `.env` to read.
  * @param warn - sink for the one-line unreadable-file diagnostic.
+ * @param home - the resolved Harness home; when `dir` is it, {@link HOME_LAYER_PROXY_NAMES} are accepted.
  * @returns the parsed entries, or `undefined` when the file is absent or unreadable.
- * @throws when the file declares a name {@link isBootstrapOnly} rejects.
+ * @throws when the file declares a name {@link isBootstrapOnly} rejects and this layer may not set.
  */
 function readEnvLayer(
-  binName: string, dir: string, warn: (line: string) => void,
+  binName: string, dir: string, warn: (line: string) => void, home: string,
 ): { path: string; values: Record<string, string> } | undefined {
   const path = resolve(dir, '.env')
+  const isHome = resolve(dir) === home
   let content: string
   try {
     content = readFileSync(path, 'utf8')
@@ -160,10 +166,16 @@ function readEnvLayer(
   const values = parseEnv(content) as Record<string, string>
   for (const name of Object.keys(values)) {
     if (!isBootstrapOnly(name)) continue
+    const proxyName = HOME_LAYER_PROXY_NAMES.has(name.toUpperCase())
+    if (isHome && proxyName) continue
+    // A proxy name has a second way out that the other bootstrap names do not, so its message says so.
+    const remedy = proxyName
+      ? `export ${name}, or put it in ${resolve(home, '.env')}, which does not travel with a repository`
+      : `export ${name} instead of putting it in a .env file`
     throw new Error(
       `${binName}: ${path} sets "${name}", which only the launching environment may set`
       + ' (it decides how this process starts, where its code and instructions load from, or how it'
-      + ` reaches the network); export ${name} instead of putting it in a .env file`,
+      + ` reaches the network); ${remedy}`,
     )
   }
   return { path, values }
@@ -178,7 +190,7 @@ function readEnvLayer(
  * @param cwd - the invoking directory whose `.env` is the project layer.
  * @param warn - sink for the one-line misconfiguration diagnostics.
  * @returns this run's frozen environment snapshot.
- * @throws when either file declares a bootstrap-only variable.
+ * @throws when either file declares a bootstrap-only variable, except {@link HOME_LAYER_PROXY_NAMES} in the Harness-home file.
  */
 export function loadLayeredEnv(
   binName: string, cwd: string = process.cwd(),
@@ -187,8 +199,8 @@ export function loadLayeredEnv(
   const home = resolveDshHome()
   const inherited = { ...process.env } as Record<string, string>
   // Parse both layers first: a rejection must not leave one file applied.
-  const project = readEnvLayer(binName, cwd, warn)
-  const user = home === resolve(cwd) ? undefined : readEnvLayer(binName, home, warn)
+  const project = readEnvLayer(binName, cwd, warn, home)
+  const user = home === resolve(cwd) ? undefined : readEnvLayer(binName, home, warn, home)
   // Apply the checked values without replacing a higher-ranked name.
   for (const layer of [project, user]) {
     if (layer === undefined) continue
@@ -310,11 +322,11 @@ export function loadOverlayPatches(binName: string, file: string): PatchOptions[
   return parsePatchList(binName, file, content, 'overlay')
 }
 
-/** Resolve relative plugin paths in one patch file's `insert` rows without changing assertion names. */
+/** Convert inserted filesystem paths to file URLs, anchoring relative paths beside the patch; keep assertion names literal. */
 function anchorInsertedPluginNames(patches: PatchOptions[], file: string): PatchOptions[] {
   const base = dirname(resolve(file))
   const visit = (entry: EntryOptions): void => {
-    if (typeof entry.name === 'string' && (entry.name.startsWith('./') || entry.name.startsWith('../'))) {
+    if (typeof entry.name === 'string' && (isAbsolute(entry.name) || entry.name.startsWith('./') || entry.name.startsWith('../'))) {
       entry.name = pathToFileURL(resolve(base, entry.name)).href
     }
     if (entry.group && Array.isArray(entry.config)) entry.config.forEach(visit)
@@ -496,12 +508,7 @@ function groupedDump(
  * @param absoluteConfigPath - absolute YAML or JSON configuration path.
  * @param patches - initial app and user patches, applied in order.
  * @param bareModuleBaseUrl - optional installed-host base for bare package
- * names; relative names continue to resolve beside the configuration file,
- * and a bare name the host cannot answer falls back to that file's own
- * directory (the healed profile fallback) before failing. Also installs the
- * process-wide ESM resolve hook so nested imports inside an out-of-tree
- * plugin can reach the same installation when the profile fallback symlink
- * points into `app.asar`.
+ * names; relative names continue to resolve beside the configuration file.
  * @returns the created root Include entry, or `undefined` when a surface
  * disposed the whole tree (taking the Loader service with it) while the
  * transactional create was still settling entry lifecycle.
@@ -512,32 +519,19 @@ export async function mountRootInclude(
   patches: readonly PatchOptions[] = [],
   bareModuleBaseUrl?: string,
 ): Promise<Entry | undefined> {
-  if (bareModuleBaseUrl !== undefined) {
-    installInstallationResolveHook(bareModuleBaseUrl)
-    const hostRequire = createRequire(bareModuleBaseUrl)
-    // A bare name the installed host cannot resolve still resolves beside the
-    // configuration file: a source-checkout app anchor (`apps/cli`) does not
-    // link every transitive workspace package into its own node_modules under
-    // pnpm's nested layout, while the profile directory's healed flat fallback
-    // (the same one `healProfilesModuleFallback` maintains) covers the whole
-    // dependency closure. Installation wins where it can answer; the loader's
-    // baseUrl (the profile directory) answers the rest, which keeps the
-    // closed-runtime contract without hand-listing packages in the app.
-    const profileRequire = createRequire(pathToFileURL(absoluteConfigPath).href)
-    ctx.loader.resolveImport = (specifier) => {
-      if (!specifier.startsWith('.') && !isAbsolute(specifier)
-        && !/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(specifier)) {
-        try {
-          return pathToFileURL(hostRequire.resolve(specifier)).href
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException | null)?.code !== 'MODULE_NOT_FOUND') throw error
-          return pathToFileURL(profileRequire.resolve(specifier)).href
-        }
+  ctx.loader.builtins.include = bareModuleBaseUrl === undefined
+    ? Include
+    : class HostResolvedRootInclude extends Include {
+      override import(name: string, getOuterStack?: () => string[]): unknown {
+        const specifier = isAbsolute(name) ? pathToFileURL(name).href : name
+        if (name.startsWith('.') || name.startsWith('cordis:')) return super.import(specifier, getOuterStack)
+        const internal = this.ctx.loader.internal
+        /* v8 ignore next -- Node supplies the internal loader; this preserves the
+           original diagnostic for hypothetical embedders without it. */
+        if (internal === undefined) return super.import(specifier, getOuterStack)
+        return internal.import(specifier, bareModuleBaseUrl, {})
       }
-      return isAbsolute(specifier) ? pathToFileURL(specifier).href : specifier
     }
-  }
-  ctx.loader.builtins.include = Include
   // `cordis:group` alongside it: a group row is how a composition gives one
   // `isolate` realm to a provider and its consumers together, and an agent
   // preset living outside this workspace cannot resolve `@deepseek-ai/cordis-plugin-group`
@@ -763,9 +757,8 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
 /**
  * Boot the Loader against `absoluteConfigPath` and return only after the whole
  * tree settles. Relative entry names resolve against the config directory;
- * bare package names use the ambient Loader pipeline by default, or a
- * `bareModuleBaseUrl` resolver shared by every EntryTree in closed runtimes.
- * The bootstrap include
+ * bare package names resolve there by default or against an explicit
+ * `bareModuleBaseUrl` for closed packaged runtimes. The bootstrap include
  * is statically imported and mounted as the `cordis:include` builtin, loading
  * through the ambient module pipeline (vite/tsx/plain ESM). The package build
  * embeds Include while leaving Loader external, so the built include tree and
@@ -774,8 +767,8 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
  * partial context; a missing fiber or never-activating entry is rejected by
  * the final audit, {@link assertEntriesActivated}, which rethrows a plugin's
  * init rejection with its original stack; later unhandled rejections remain
- * covered by {@link installFailLoud}. Closed runtimes use the explicit module
- * base instead of depending on the Loader's optional native helper.
+ * covered by {@link installFailLoud}. Built bins need the Loader's native
+ * helper for bare plugin specifiers; relative specifiers do not.
  * @param binName - the diagnostic prefix for load-failure errors.
  * @param absoluteConfigPath - the config to include; must already be absolute
  * (see {@link resolveConfigPath}).
@@ -784,8 +777,7 @@ export async function assertEntriesActivated(ctx: Context, binName: string): Pro
  * @param prepare - optional host setup run after Loader installation and before any config-tree entry mounts.
  * @param bareModuleBaseUrl - optional installed-host base for bare package
  * names; use it when the host, rather than the configuration project, owns the
- * complete plugin set. Same value also installs the process-wide ESM resolve
- * hook used by nested imports inside out-of-tree plugins.
+ * complete plugin set.
  * @returns the root context once every entry has started, or as soon as a
  * surface disposed the tree while startup was still in flight.
  * @throws a labelled error after disposing the partial context — `host
@@ -849,9 +841,10 @@ export const HARNESS_SOURCE_SECTION = 'harness:source'
  * explicitly distinguishing it from the task workspace and current working
  * directory. The self-referential `dsh-tool-cordis` toolset reads and edits this
  * checkout. Call once on the settled boot context ({@link boot}); the section
- * uses the shared first-party placement just after the harness identity opener
- * and before the deployment persona. A booted tree with no `systemPrompt` service has no prompt to
- * augment, so this is then a no-op that returns `undefined`. The section is
+ * uses the shared first-party placement after reusable instructions
+ * and before the Web surface and persona suffix. A booted tree with no
+ * `systemPrompt` service has no prompt to augment, so this is then a no-op
+ * that returns `undefined`. The section is
  * registered against the `systemPrompt` service's fiber, so a dev HMR reload of
  * that plugin drops it until the next boot.
  * @param ctx - the settled boot context whose global system prompt to augment.

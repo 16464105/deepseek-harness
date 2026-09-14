@@ -14,7 +14,7 @@ import {
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 import { pathOps } from '../src/client/ProviderEditor.tsx'
 import {
-  DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateModelRows,
+  DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateDeepSeekModels,
 } from '../src/client/DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
@@ -307,10 +307,65 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('hides both add actions when their settings namespaces are absent', async () => {
+    const scripted = scriptedFace()
+    scripted.face.settings.describe.mockResolvedValue(remoteOk({ writable: true, hasDocument: false, namespaces: [] }))
+    await mountFace(scripted)
+    expect(screen.queryByRole('button', { name: en.add })).toBeNull()
+    expect(screen.queryByRole('button', { name: en.customAdd })).toBeNull()
+  })
+
+  it('offers only providers whose settings namespace can open an editor', async () => {
+    const scripted = scriptedFace()
+    scripted.face.settings.describe.mockResolvedValue(remoteOk({
+      writable: true, hasDocument: false,
+      namespaces: wireNamespaces().filter(view => view.ns !== 'llm-pi-ai'),
+    }))
+    await mountFace(scripted)
+    expect(screen.queryByRole('button', { name: en.customAdd })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en.add }))
+    expect(screen.queryByRole('option', { name: 'anthropic' })).toBeNull()
+    expect(screen.getByRole('option', { name: 'plain' })).toBeTruthy()
+  })
+
+  it('shows a catalog diagnostic while keeping the provider editable', async () => {
+    const scripted = scriptedFace()
+    const failure = 'llm-pi-ai: provider "openai" model "111" needs an api'
+    scripted.face.llm.listConfigurableProviders.mockResolvedValue(remoteOk([
+      { provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'], error: failure },
+    ]))
+    await mountFace(scripted)
+    expect(screen.getByRole('alert').textContent).toBe(failure)
+    fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.editProvider) }))
+    expect(await screen.findByLabelText(en.keyInput)).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.add })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.customAdd })).toBeTruthy()
+  })
+
   it('renders nothing before the slot injects its dependencies', () => {
     const uninjected = {} as ModelsSectionProps
     render(<ModelsSection {...uninjected} />)
     expect(document.body.textContent).toBe('')
+  })
+
+  it('shows a configuration diagnostic inside the first-run setup card', async () => {
+    const scripted = scriptedFace()
+    const failure = 'The provider configuration needs repair'
+    scripted.face.llm.listProviders.mockResolvedValue(remoteOk([
+      { id: 'deepseek-official', name: 'DeepSeek' },
+    ]))
+    scripted.face.llm.listConfigurableProviders.mockResolvedValue(remoteOk([
+      { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [], error: failure },
+    ]))
+    scripted.face.credentials.describe.mockResolvedValue(remoteOk({
+      DEEPSEEK_API_KEY: { configured: false, writable: true },
+    }))
+    await mountFace(scripted)
+
+    const card = screen.getByRole('listitem')
+    expect(within(card).getByRole('alert').textContent).toBe(failure)
+    expect(within(card).getByLabelText(en.keyInput)).toBeTruthy()
+    expect(within(card).queryByRole('button', { name: deepSeekCopy(en.editProvider) })).toBeNull()
   })
 
   it('dispatches the provider-card seat per rendered row, keyed by the owning namespace', async () => {
@@ -625,25 +680,25 @@ describe('ModelsSection', () => {
   it('validates every adapter-owned model catalog invariant', () => {
     expect(modelDrafts(undefined)).toEqual([])
     expect(modelDrafts([null, 'bad', { id: 'ok' }])).toEqual([{}, {}, { id: 'ok' }])
-    expect(validateModelRows([{}])).toEqual({ index: 0, key: 'modelIdRequired' })
-    expect(validateModelRows([{ id: 'same' }, { id: 'same' }]))
+    expect(validateDeepSeekModels([{}])).toEqual({ index: 0, key: 'modelIdRequired' })
+    expect(validateDeepSeekModels([{ id: 'same' }, { id: 'same' }]))
       .toEqual({ index: 1, key: 'modelIdDuplicate' })
-    expect(validateModelRows([{ id: 'model', name: '' }]))
+    expect(validateDeepSeekModels([{ id: 'model', name: '' }]))
       .toEqual({ index: 0, key: 'modelNameInvalid' })
-    expect(validateModelRows([{ id: 'model', contextWindow: null }]))
+    expect(validateDeepSeekModels([{ id: 'model', contextWindow: null }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateModelRows([{ id: 'model', contextWindow: 1.5 }]))
+    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 1.5 }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateModelRows([{ id: 'model', contextWindow: 0 }]))
+    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 0 }]))
       .toEqual({ index: 0, key: 'modelContextInvalid' })
-    expect(validateModelRows([{ id: 'model', contextWindow: 1 }])).toBeUndefined()
-    expect(validateModelRows([{ id: 'model', maxTokens: null }]))
+    expect(validateDeepSeekModels([{ id: 'model', contextWindow: 1 }])).toBeUndefined()
+    expect(validateDeepSeekModels([{ id: 'model', maxTokens: null }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateModelRows([{ id: 'model', maxTokens: 1.5 }]))
+    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 1.5 }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateModelRows([{ id: 'model', maxTokens: 0 }]))
+    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 0 }]))
       .toEqual({ index: 0, key: 'modelMaxTokensInvalid' })
-    expect(validateModelRows([{ id: 'model', maxTokens: 8192 }])).toBeUndefined()
+    expect(validateDeepSeekModels([{ id: 'model', maxTokens: 8192 }])).toBeUndefined()
   })
 
   it('reads context windows written as counts, thousands, or millions', () => {
@@ -902,8 +957,8 @@ describe('ModelsSection', () => {
 
     // An id that is only whitespace is as absent as an empty one, and a padded
     // id is a duplicate of its trimmed twin.
-    expect(validateModelRows([{ id: '   ' }])).toEqual({ index: 0, key: 'modelIdRequired' })
-    expect(validateModelRows([{ id: 'model' }, { id: 'model ' }]))
+    expect(validateDeepSeekModels([{ id: '   ' }])).toEqual({ index: 0, key: 'modelIdRequired' })
+    expect(validateDeepSeekModels([{ id: 'model' }, { id: 'model ' }]))
       .toEqual({ index: 1, key: 'modelIdDuplicate' })
   })
 

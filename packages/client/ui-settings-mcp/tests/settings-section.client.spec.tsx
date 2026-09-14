@@ -18,7 +18,11 @@ const unusedHook = (() => { throw new Error('unused by MCP settings') }) as neve
 type AttentionSnapshot = Parameters<Parameters<McpSettingsProps['useSessionPendingInteraction']>[0]>[0]
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: McpSettingsProps['useSessionPendingInteraction'] = selector => selector(noAttention)
-const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction }
+/** Panel seat: this section renders in the settings pane, so no panel is active. */
+const usePanelInfo: McpSettingsProps['usePanelInfo'] = selector => selector({ activePanelId: null })
+/** Resource seat: the MCP settings section reads no `file`-provider resource. */
+const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined })) as McpSettingsProps['useResource']
+const kit = { useSessions: unusedHook, useWorkspaces: unusedHook, useSessionPendingInteraction, usePanelInfo, useResource }
 const CONFIGURED: McpServerSnapshot = {
   writable: true,
   documentPath: '/home/mcp.json',

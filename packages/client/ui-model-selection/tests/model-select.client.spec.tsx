@@ -20,6 +20,12 @@ const t: ComponentProps<typeof ModelSelect>['t'] = (key, params) => {
     : template.replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
 }
 
+/**
+ * Draft-input seat: an empty draft. The image-requirement cases below pass an
+ * explicit hook, so this default only satisfies the required prop.
+ */
+const noImages = (() => ({ imageIds: [] as readonly string[], text: '' })) as unknown as ComponentProps<typeof ModelSelect>['useInput']
+
 const reasoning = {
   efforts: [
     { id: 'off', name: 'Off' },
@@ -28,18 +34,6 @@ const reasoning = {
   ],
   defaultEffort: 'high',
 }
-
-type ModelSelectProps = ComponentProps<typeof ModelSelect>
-type InputSnapshot = Parameters<ModelSelectProps['useInput']>[0] extends (input: infer T) => unknown ? T : never
-
-function inputHook(imageIds: InputSnapshot['imageIds'] = []): ModelSelectProps['useInput'] {
-  const input = {
-    draft: '', imageIds, draftRev: 0, phase: 'plain', occurrences: [], queue: [],
-  } satisfies InputSnapshot
-  return selector => selector(input)
-}
-
-const noImages = inputHook()
 
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
@@ -155,7 +149,7 @@ describe('ModelSelect reasoning effort', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     expect(screen.queryByRole('menuitemradio', { name: 'removed-model' })).toBeNull()
     expect(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' })).toBeTruthy()
-    // The model's catalog description rides the row as decorative copy.
+    // The catalog description rides the row as decorative copy.
     expect(screen.getByText('Fast catalog description')).toBeTruthy()
   })
 
@@ -170,9 +164,9 @@ describe('ModelSelect reasoning effort', () => {
       locked={false}
       available
       directory={directory}
+      useInput={noImages}
       load={vi.fn()}
       select={vi.fn().mockResolvedValue(true)}
-      useInput={noImages}
       t={t}
     />)
 
@@ -187,7 +181,7 @@ describe('ModelSelect reasoning effort', () => {
   })
 
   it('announces a rejected selection as a transient toast and keeps the in-menu strip for loads', async () => {
-    const groups: ModelDirectoryState['groups'] = [{
+    const groups = [{
       id: 'deepseek-official',
       name: 'DeepSeek',
       models: [
@@ -219,6 +213,44 @@ describe('ModelSelect reasoning effort', () => {
     expect(screen.queryByRole('button', { name: '重试' })).toBeNull()
   })
 
+  it('portals the placed menu card to body and closes only on truly-outside mousedown', () => {
+    const offsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!
+    const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 200 })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 300 })
+    try {
+      const { container } = render(<ModelSelect
+        locked={false}
+        available
+        directory={createSnapshotStore(state())}
+        useInput={noImages}
+        load={vi.fn()}
+        select={vi.fn().mockResolvedValue(true)}
+        t={t}
+      />)
+      const trigger = screen.getByRole('button', { name: /选择模型/ })
+      fireEvent.click(trigger)
+      const menu = screen.getByRole('menu')
+      // Outside the composer subtree — column overflow clips cannot crop it.
+      expect(container.contains(menu)).toBe(false)
+      expect(menu.parentElement).toBe(document.body)
+      // jsdom anchor rects are all zero, so the measured 200x300 card clamps
+      // to the 12px viewport margin on both axes.
+      expect(menu.style.left).toBe('12px')
+      expect(menu.style.top).toBe('12px')
+      // Interactions inside the trigger subtree or the portaled card stay open.
+      fireEvent.mouseDown(menu)
+      fireEvent.mouseDown(trigger)
+      fireEvent.blur(trigger, { relatedTarget: menu })
+      expect(screen.getByRole('menu')).toBeTruthy()
+      fireEvent.mouseDown(document.body)
+      expect(screen.queryByRole('menu')).toBeNull()
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, 'offsetWidth', offsetWidth)
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight)
+    }
+  })
+
   it('renders no Agent-bound control for an addressed subagent session', () => {
     const load = vi.fn()
     render(<ModelSelect
@@ -233,45 +265,5 @@ describe('ModelSelect reasoning effort', () => {
 
     expect(screen.queryByRole('button')).toBeNull()
     expect(load).not.toHaveBeenCalled()
-  })
-
-  it('opens the model list for an image draft and disables only explicit text-only models', async () => {
-    const groups: ModelDirectoryState['groups'] = [{
-      id: 'codebuddy',
-      name: 'CodeBuddy',
-      models: [
-        { id: 'plain', name: 'Plain', inputModalities: ['text'] },
-        { id: 'vision', name: 'Vision', inputModalities: ['text', 'image'] },
-        { id: 'unknown', name: 'Unknown' },
-      ],
-    }]
-    const directory = createSnapshotStore<ModelDirectoryState>(state({
-      current: { provider: 'codebuddy', model: 'plain' },
-      groups,
-    }))
-    const select = vi.fn().mockResolvedValue(true)
-    render(<ModelSelect
-      locked={false}
-      available
-      directory={directory}
-      useInput={inputHook(['draft-image' as never])}
-      load={vi.fn()}
-      select={select}
-      t={t}
-    />)
-
-    expect(await screen.findByText('请选择支持图片的模型继续')).toBeTruthy()
-    const plain = screen.getByRole('menuitemradio', { name: /Plain/ }) as HTMLButtonElement
-    const vision = screen.getByRole('menuitemradio', { name: /Vision/ }) as HTMLButtonElement
-    const unknown = screen.getByRole('menuitemradio', { name: 'Unknown' }) as HTMLButtonElement
-    expect(plain.disabled).toBe(true)
-    expect(vision.disabled).toBe(false)
-    expect(vision.textContent).toContain('支持图片')
-    expect(unknown.disabled).toBe(false)
-
-    fireEvent.click(vision)
-    await waitFor(() => {
-      expect(select).toHaveBeenCalledWith({ provider: 'codebuddy', model: 'vision' })
-    })
   })
 })

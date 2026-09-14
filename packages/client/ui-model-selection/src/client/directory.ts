@@ -41,8 +41,7 @@ export interface ModelDirectoryState {
 export class ModelDirectory {
   /** The shared snapshot both entries render from (uSES-safe store). */
   readonly store: SnapshotStore<ModelDirectoryState> = createSnapshotStore<ModelDirectoryState>({
-    current: null, routable: null, requiresImageInput: false,
-    groups: [], failures: [], status: 'idle', error: null,
+    current: null, routable: null, requiresImageInput: false, groups: [], failures: [], status: 'idle', error: null,
   })
 
   /** Latest selection operation wins; an older response never overwrites a newer one. */
@@ -51,6 +50,17 @@ export class ModelDirectory {
   private resolved = false
   private readonly unsubscribeCatalog: () => void
   private readonly unsubscribeSelection: () => void
+
+  /**
+   * Record whether visible history or the pending Host inbox requires image
+   * input; the composer block and the model seat read it to refuse text-only
+   * routes while an image rides the next request.
+   * @param requires - whether the next assembled step needs image input.
+   */
+  setImageRequirement(requires: boolean): void {
+    if (this.disposed || this.store.getSnapshot().requiresImageInput === requires) return
+    this.store.update((state) => { state.requiresImageInput = requires })
+  }
 
   /**
    * @param sessions - the session wire face (captured from the plugin's root connection).
@@ -130,17 +140,6 @@ export class ModelDirectory {
     this.disposed = true
     this.unsubscribeSelection()
     this.unsubscribeCatalog()
-  }
-
-  /**
-   * Record whether visible history or the pending Host inbox requires image
-   * input; the composer block and the model seat read it to refuse text-only
-   * routes while an image rides the next request.
-   * @param requires - whether the next assembled step needs image input.
-   */
-  setImageRequirement(requires: boolean): void {
-    if (this.disposed || this.store.getSnapshot().requiresImageInput === requires) return
-    this.store.update((state) => { state.requiresImageInput = requires })
   }
 
   private assertAvailable(): void {

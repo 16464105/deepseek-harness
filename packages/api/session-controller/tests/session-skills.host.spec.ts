@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import SessionStore, { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/dsh-skill'
 import { describe, expect, it, vi } from 'vitest'
@@ -15,7 +15,7 @@ function observation(
   const lease = (): SessionObservation => ({
     source: 'live',
     header: {
-      version: 0,
+      version: SESSION_FORMAT_VERSION,
       id: sessionId,
       createdAt: 1,
       isSeeded: false,
@@ -58,8 +58,6 @@ describe('SessionSkillCatalog', () => {
         description: 'Review the current change.',
         whenToUse: 'Before publishing.',
         invocation: { modelInvocable: true, userInvocable: true },
-        source: 'project' as const,
-        provider: 'fixture' as const,
       },
       {
         name: 'model-only',
@@ -76,11 +74,7 @@ describe('SessionSkillCatalog', () => {
         description: 'Review the current change.',
         whenToUse: 'Before publishing.',
         modelInvocable: true,
-        source: 'project',
-        provider: 'fixture',
       }],
-      openDirectory: expect.any(String) as unknown as string,
-      canOpenPath: expect.any(Boolean) as unknown as boolean,
     })
     expect(observeSession).toHaveBeenCalledWith(sessionId)
     expect(dispose).toHaveBeenCalledOnce()
@@ -102,8 +96,6 @@ describe('SessionSkillCatalog', () => {
       name: 'preset-owned',
       description: 'Composed for this Agent.',
       invocation: { modelInvocable: false, userInvocable: true },
-      source: 'preset' as const,
-      provider: 'fixture' as const,
     }]))
     const standingKeyFor = vi.fn()
     ctx.provide('agentPresets', {
@@ -117,11 +109,7 @@ describe('SessionSkillCatalog', () => {
         name: 'preset-owned',
         description: 'Composed for this Agent.',
         modelInvocable: false,
-        source: 'preset',
-        provider: 'fixture',
       }],
-      openDirectory: expect.any(String) as unknown as string,
-      canOpenPath: expect.any(Boolean) as unknown as boolean,
     })
     expect(scopedList).toHaveBeenCalledWith({ cwd: '/live/project', scope: agent })
     expect(standingKeyFor).not.toHaveBeenCalled()
@@ -143,11 +131,7 @@ describe('SessionSkillCatalog', () => {
     ctx.provide('skills', { list } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
-    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({
-      skills: [],
-      openDirectory: expect.any(String) as unknown as string,
-      canOpenPath: expect.any(Boolean) as unknown as boolean,
-    })
+    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
     expect(standingKeyFor).toHaveBeenCalledWith('minimal')
     expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope })
     expect(ctx.agents.list()).toEqual([])
@@ -169,11 +153,7 @@ describe('SessionSkillCatalog', () => {
     ctx.provide('skills', { list } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
-    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({
-      skills: [],
-      openDirectory: expect.any(String) as unknown as string,
-      canOpenPath: expect.any(Boolean) as unknown as boolean,
-    })
+    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
     expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope: undefined })
   })
 

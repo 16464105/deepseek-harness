@@ -64,14 +64,12 @@ function constructWithRoute(
     contextBaseUrl?: string
     entryBaseUrl?: string
     internal?: NonNullable<Context['loader']['internal']>
-    resolveImport?: (specifier: string, parentURL: string, attributes: Record<string, string>) => string
   } = {},
 ): { context: Context; service: ClientModuleRegistry; route: WebRoute } {
   const ctx = new Context()
   ctx.baseUrl = options.contextBaseUrl ?? pathToFileURL(root!).href + '/'
   ctx.provide('loader', {
     internal: options.internal,
-    resolveImport: options.resolveImport,
     *entries() {
       for (const packageName of packageNames) {
         yield {
@@ -407,20 +405,6 @@ describe('client bundle activation', () => {
     expect(service.graph().entries.map(entry => entry.id)).toEqual([packageName])
   })
 
-  it('prefers the installation resolver for bare package names (packaged-host asar)', () => {
-    const packageName = '@fixture/asar-bundle'
-    writeBuiltPackage(packageName, {})
-    // writeBuiltPackage writes lib/client.js; the manifest sits at the package root.
-    const pkgJsonPath = join(root!, 'node_modules', ...packageName.split('/'), 'package.json')
-    const { service } = constructWithRoute([packageName], {
-      resolveImport: (specifier) => {
-        if (specifier === `${packageName}/package.json`) return pathToFileURL(pkgJsonPath).href
-        throw new Error(`unexpected specifier ${specifier}`)
-      },
-    })
-    expect(service.graph().entries.map(entry => entry.id)).toEqual([packageName])
-  })
-
   it('allows sibling dsh roles', () => {
     const currentName = '@fixture/current-client-field'
     const clientPath = writePackage(currentName, {
@@ -644,6 +628,10 @@ describe('client bundle activation', () => {
     expect(batchScript.status).toBe(200)
     expect(batchScript.headers?.['cache-control']).toBe('public, max-age=31536000, immutable')
     expect(batchScript.body.toString('utf8')).toContain(`//# sourceMappingURL=${mapUrl(batch.url)}`)
+    const shellResponse = service.fetchBundle(new Request(`dsh-app://app${batch.url}`))
+    expect(shellResponse.status).toBe(200)
+    expect(shellResponse.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect(await shellResponse.text()).toBe(batchScript.body.toString('utf8'))
     expect((await routeRequest(route, batch.url, 'HEAD')).body).toHaveLength(0)
     expect((await routeRequest(route, batch.url, 'POST')).status).toBe(405)
     const batchMap = await routeRequest(route, mapUrl(batch.url))

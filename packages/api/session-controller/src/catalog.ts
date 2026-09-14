@@ -39,6 +39,8 @@ export async function buildModelCatalog(
           id: model.id,
           name: model.name,
           ...(model.description === undefined ? {} : { description: model.description }),
+          // The route's declared input modalities let the model seat refuse a
+          // text-only model while an image rides the next request.
           ...(resolved.inputModalities === undefined ? {} : { inputModalities: resolved.inputModalities }),
           ...(reasoning === undefined ? {} : { reasoning }),
         }

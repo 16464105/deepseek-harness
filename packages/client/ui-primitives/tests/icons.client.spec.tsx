@@ -17,8 +17,8 @@ const icons = Object.fromEntries(
 const iconNames = Object.keys(icons)
 
 describe('ic_ds_ icon set', () => {
-  it('exports the full icon set (46 deepsuite + 21 figma extracts + seven product glyphs outside those sets)', () => {
-    expect(iconNames.length).toBe(74)
+  it('exports the full icon set (46 deepsuite + 21 figma extracts + eight product glyphs outside those sets)', () => {
+    expect(iconNames.length).toBe(75)
   })
 
   it.each(iconNames)('%s renders an svg with currentColor fills and no hardcoded palette', (name) => {
@@ -58,14 +58,15 @@ describe('ic_ds_ icon set', () => {
 })
 
 describe('FishLogo', () => {
-  it('renders the official whale path in brand blue at the 26.634:19.6 ratio', () => {
+  it('renders the fish path in currentColor at the native ratio', () => {
     const { container } = render(<primitives.FishLogo />)
     const svg = container.querySelector('svg')!
     expect(svg.getAttribute('width')).toBe('24')
     expect(Number(svg.getAttribute('height'))).toBeCloseTo(17.66, 1)
-    expect(svg.getAttribute('viewBox')).toBe('0 0 26.634 19.6')
+    expect(svg.getAttribute('viewBox')).toBe('0 0 23.16 17.04')
     expect(container.querySelectorAll('path')).toHaveLength(1)
-    expect(container.innerHTML).toContain(primitives.DEEPSEEK_BRAND_BLUE)
+    expect(container.innerHTML).toContain('currentColor')
+    expect(container.innerHTML).not.toContain('M0 0L23.16')
   })
 })
 

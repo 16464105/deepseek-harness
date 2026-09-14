@@ -151,10 +151,8 @@ export abstract class EntryTree {
       // onImport.tracePromise.__proto__
       // internal.import
       info.offset += 3
-      const importAttributes: ImportAttributes = {}
-      name = this.ctx.loader.resolveImport?.(name, this.ctx.baseUrl!, importAttributes) ?? name
       if (this.ctx.loader.internal) {
-        return await this.ctx.loader.internal.import(name, this.ctx.baseUrl!, importAttributes)
+        return await this.ctx.loader.internal.import(name, this.ctx.baseUrl!, {})
       } else if (name.startsWith('.')) {
         return await import(/* @vite-ignore */new URL(name, this.ctx.baseUrl).href)
       } else {

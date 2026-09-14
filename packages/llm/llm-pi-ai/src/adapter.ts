@@ -97,35 +97,21 @@ export interface PiAiAdapterOptions {
   /** Bridge one attachment reference into the current model-tool execution world. */
   resolveImageAccess?: (attachments: AttachmentStore, ref: ImageAttachmentRef) => ImageAttachmentAccess | undefined
   /**
-   * Add provider-specific transport fields for one already-resolved request.
-   * This hook is for adapters whose authenticated endpoint requires dynamic
-   * request metadata or a final payload normalization that pi-ai does not own.
-   * The returned headers are merged under Harness attribution headers.
-   */
-  prepareRequest?: (request: PiAiRequestContext) => PiAiPreparedRequest
-  /**
    * Observe one assistant history message degrading to provider-neutral
    * conversion because its stored replay state is unusable by this build.
    */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
-}
-
-/** Frozen request facts passed to {@link PiAiAdapterOptions.prepareRequest}. */
-export interface PiAiRequestContext {
-  /** Harness request captured before credential resolution. */
-  options: Readonly<GenerateOptions>
-  /** Resolved provider profile from the same immutable adapter snapshot. */
-  profile: ResolvedPiAiProviderProfile
-  /** Resolved pi-ai model selected by the request. */
-  model: Model<Api>
-}
-
-/** Provider-specific request fields accepted by {@link PiAiAdapterOptions.prepareRequest}. */
-export interface PiAiPreparedRequest {
-  /** Dynamic request headers, merged over profile headers. */
-  headers?: Record<string, string>
-  /** Final provider-payload inspection or replacement callback. */
-  onPayload?: SimpleStreamOptions['onPayload']
+  /**
+   * Add provider-specific transport fields for one already-resolved request.
+   * A route whose authenticated endpoint needs dynamic request metadata that
+   * the static profile headers cannot carry (Tencent CodeBuddy's per-call
+   * signing headers) declares it here; the returned headers merge over the
+   * static profile set, and `onPayload` reaches pi-ai's own payload hook.
+   */
+  prepareRequest?: (request: { options: GenerateOptions }) => {
+    headers?: Record<string, string>
+    onPayload?: (payload: unknown, model: unknown) => unknown | undefined | Promise<unknown | undefined>
+  }
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -258,7 +244,9 @@ export class PiAiAdapter extends LlmAdapter {
     const profiles = this.config.profiles()
     if (this.snapshot?.profiles === profiles) return this.snapshot
     const models: MutableModels = createModels(this.config.auth)
-    for (const profile of profiles.values()) models.setProvider(profile.piProvider)
+    for (const profile of profiles.values()) {
+      if (profile.piProvider !== undefined) models.setProvider(profile.piProvider)
+    }
     this.snapshot = { profiles, models }
     return this.snapshot
   }
@@ -274,7 +262,10 @@ export class PiAiAdapter extends LlmAdapter {
 
   /** The configured descriptor for one exact route/model pair within one snapshot. */
   private modelOf(snapshot: PiAiSnapshot, provider: string, model: string): Model<Api> {
-    this.profileOf(snapshot, provider)
+    const profile = this.profileOf(snapshot, provider)
+    const failure = profile.modelErrors.get(model)
+      ?? (profile.piProvider === undefined ? profile.catalogError : undefined)
+    if (failure !== undefined) throw new LlmError(failure, 'INVALID_CONFIG')
     const resolved = snapshot.models.getModel(provider, model)
     if (resolved === undefined) {
       throw new LlmError(`pi-ai provider "${provider}" has no configured model "${model}"`, 'UNKNOWN_MODEL')
@@ -366,7 +357,6 @@ export class PiAiAdapter extends LlmAdapter {
       options.reasoningEffort ?? profile.reasoning,
     )
     const apiKey = await this.config.resolveApiKey(options.provider, profile)
-    const prepared = this.config.prepareRequest?.({ options, profile, model })
 
     const consumer = new AbortController()
     const upstream = options.signal === undefined
@@ -398,18 +388,19 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade)
+      const prepared = this.config.prepareRequest?.({ options }) ?? {}
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
-        ...prepared?.onPayload === undefined ? {} : { onPayload: prepared.onPayload },
+        ...prepared.onPayload === undefined ? {} : { onPayload: prepared.onPayload },
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
         ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders({ ...profile.headers, ...prepared?.headers }),
+        headers: { ...requestHeaders(profile.headers), ...prepared.headers ?? {} },
       })
-      const iterator = toStreamChunks(events, model.contextWindow, options.signal)[Symbol.asyncIterator]()
+      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {

@@ -3,7 +3,10 @@
 import type { Context, Fiber, Plugin } from '@deepseek-ai/cordis'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import * as McpClient from '@deepseek-ai/dsh-mcp-client'
-import type { Config as McpClientConfig, McpConnectionStatus } from '@deepseek-ai/dsh-mcp-client'
+import type { Config as McpClientConfig } from '@deepseek-ai/dsh-mcp-client'
+// Side-effect type import: declaration-merges `ctx.tools` onto Context, which
+// the status projection reads to count one server's registered tools.
+import type {} from '@deepseek-ai/dsh-tools'
 import { watch as chokidarWatch } from 'chokidar'
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
@@ -114,7 +117,6 @@ export class McpManager extends TypertRemoteService {
 
   constructor(ctx: Context, options: McpManagerOptions = {}) {
     super(ctx, 'mcpManager')
-    ctx.on('mcp/status', (status) => { this.observeStatus(status) })
     this.documentPath = options.documentPath ?? dshHomePath('mcp.json')
     this.watch = options.watch ?? true
     this.debounceMs = options.debounceMs ?? 100
@@ -309,9 +311,12 @@ export class McpManager extends TypertRemoteService {
     return await this.list()
   }
 
-  private observeStatus(status: McpConnectionStatus): void {
-    if (!this.servers.some(server => server.serverName === status.serverName && server.enabled)) return
-    this.states.set(status.serverName, { phase: status.phase, toolCount: status.toolCount })
+  /** Count the tools one server currently owns, by its `serverName` prefix. */
+  private toolCountFor(serverName: string): number {
+    const tools = this.ctx.get('tools') as { schemas?: () => readonly { name: string }[] } | undefined
+    if (tools?.schemas === undefined) return 0
+    const prefix = `${serverName}__`
+    return tools.schemas().filter(schema => schema.name.startsWith(prefix)).length
   }
 
   private scheduleReconcile(): Promise<void> {
@@ -346,7 +351,14 @@ export class McpManager extends TypertRemoteService {
     const fiber = this.ctx.plugin(MCP_CLIENT_RUNTIME, server.config)
     this.running.set(server.serverName, { fiber, signature: signatureOf(server) })
     try {
+      // The client blocks activation on its initial connection and tool
+      // discovery, so a resolved fiber is a connected server and its tools are
+      // already registered.
       await fiber.await()
+      this.states.set(server.serverName, {
+        phase: 'connected',
+        toolCount: this.toolCountFor(server.serverName),
+      })
     } catch (error) {
       if (this.running.get(server.serverName)?.fiber === fiber) {
         this.running.delete(server.serverName)

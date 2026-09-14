@@ -19,13 +19,15 @@ import {
   type RetryPolicyConfig,
 } from '@deepseek-ai/dsh-llm'
 import {
-  authContextFrom,
-  credentialStoreFrom,
   PiAiAdapter,
-  resolveProfiles,
   type PiAiModelProfile,
   type ResolvedPiAiProviderProfile,
 } from '@deepseek-ai/dsh-llm-pi-ai'
+// The harness pi-ai plugin keeps its auth factories and profile resolver on
+// their own modules; only the adapter and its option types are package-root
+// exports, so this adapter imports the submodules directly.
+import { authContextFrom, credentialStoreFrom } from '@deepseek-ai/dsh-llm-pi-ai/src/auth.ts'
+import { resolveProfiles } from '@deepseek-ai/dsh-llm-pi-ai/src/config.ts'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { TENCENT_CODEBUDDY_MODELS } from './catalog.ts'

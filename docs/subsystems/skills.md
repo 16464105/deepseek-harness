@@ -261,15 +261,6 @@ Host service backing `ctx.remote.skills` without activating a cold Agent.
  * @throws RemoteError when the Session cannot be inspected or no registry can serve it.
  */
 @Remote async list(request: SkillListRequest, signal: AbortSignal): Promise<SkillListValue>
-
-/**
- * Open the user skills directory on the host desktop.
- * @param signal - caller lifetime carried by the Remote transport.
- * @returns whether the native opener accepted the path; the client reveals
- * the directory as text when it did not.
- * @throws RemoteError when no native opener is available.
- */
-@Remote('openDirectory') async openDirectory(signal: AbortSignal): Promise<{ opened: boolean; path: string }>
 ```
 
 Source: [`packages/api/session-controller/src/skill-catalog.ts`](../../packages/api/session-controller/src/skill-catalog.ts)
@@ -314,13 +305,6 @@ register(skill: SkillRegistration): () => void
  * @returns all sorted winning summaries.
  */
 async list(options: SkillViewOptions = {}): Promise<SkillSummary[]>
-
-/**
- * Drop completed discovery results so the next read asks every provider again.
- * Filesystem watchers normally keep catalogs current; explicit user refreshes
- * use this method when a missed or unavailable watch event is plausible.
- */
-refresh(): void
 
 /**
  * Observe the current invocation-neutral catalog and whether discovery completed within a stable revision.

@@ -19,10 +19,20 @@ vi.mock('@deepseek-ai/dsh-mcp-client', async (importOriginal) => {
       const dispose = vi.fn()
       clientRuntime.mounted.push({ config: structuredClone(config), dispose })
       ctx.effect(() => dispose)
-      ctx.emit('mcp/status', {
-        serverName: config.serverName,
-        phase: 'connected',
-        toolCount: config.serverName.length,
+      // The real client blocks activation until its tools are registered; the
+      // manager reads the connected phase and tool count back from that
+      // resolved fiber, so the double registers one tool per server name when
+      // the surrounding context carries a tools registry.
+      const tools = ctx.get('tools') as { register?: (definition: unknown) => unknown } | undefined
+      tools?.register?.({
+        name: `${config.serverName}__tool`,
+        description: 'double',
+        parameters: { type: 'object' },
+        output: {
+          schema: { type: 'string' },
+          render: (_args: unknown, value: unknown) => [{ type: 'text', text: value as string }],
+        },
+        execute: async () => 'double',
       })
     },
   }
@@ -150,8 +160,10 @@ describe('McpManager', () => {
       url: 'https://mcpgw.knot.woa.com/tapd/',
       toolCallTimeoutMs: 20_000,
       hasSecrets: true,
+      // The client double registers no tools in this bare context, so the
+      // resolved fiber reports a connected server with an empty tool set.
       phase: 'connected',
-      toolCount: 13,
+      toolCount: 0,
     })
     expect(JSON.stringify(snapshot)).not.toContain('never-return-this')
     expect(clientRuntime.mounted).toHaveLength(1)

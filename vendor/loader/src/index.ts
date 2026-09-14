@@ -44,19 +44,6 @@ declare module '@deepseek-ai/cordis' {
 
 /** Loader config and dependency intercept namespace. */
 export namespace Loader {
-  /**
-   * Rewrite a module specifier before Loader imports it.
-   * @param specifier - configured plugin module specifier.
-   * @param parentURL - entry tree URL used for relative resolution.
-   * @param importAttributes - ESM import attributes supplied to the module loader.
-   * @returns the specifier passed to the internal adapter or native import.
-   */
-  export type ImportResolver = (
-    specifier: string,
-    parentURL: string,
-    importAttributes: ImportAttributes,
-  ) => string
-
   /** Root loader configuration. */
   export interface Config {
     /** Base URL used to resolve relative plugin specifiers and config paths. */
@@ -86,9 +73,6 @@ export class Loader extends EntryTree {
   public internal = ModuleLoader.fromInternal()
 
   public builtins: Dict<any> = Object.create(null)
-
-  /** Optional host resolver applied to imports from every tree owned by this Loader. */
-  public resolveImport?: Loader.ImportResolver
 
   constructor(ctx: Context, public config: Loader.Config = {}) {
     super(ctx)

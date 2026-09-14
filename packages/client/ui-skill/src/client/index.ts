@@ -4,7 +4,7 @@
  * projection's sessionId (sessions are always agent-backed; the host
  * resolves cwd from the session header). A pick lands the literal `/name `
  * text and the prompt ships the same literal (plain-text-reference decision;
- * see .agents/notes/implemented/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md);
+ * see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md);
  * determinism
  * lives host-side — the pre-step boundary (`dsh-tool-skill`) recognizes a
  * leading `/name` naming a user-invocable skill and injects the rendered
@@ -35,12 +35,13 @@ import type { SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
+// Type-only: pulls the Settings section slot declaration into this program.
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-// Type-only: pulls the Settings section slot declaration into this program.
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SkillRow } from './SkillRow.tsx'
 import { SkillSettingsSection, type SkillSettingsInjected } from './SkillSettingsSection.tsx'
 import { SkillVisibility } from './visibility.ts'
@@ -99,7 +100,6 @@ export function apply(ctx: ClientContext): void {
 
   const fetchCatalog = (sessionId: SessionId, refresh = false): Promise<readonly SkillEntry[]> => {
     if (sessions.subagentAddress(sessionId) !== undefined) return Promise.resolve([])
-    if (refresh) invalidate(sessionId)
     const existing = fetches.get(sessionId)
     if (existing !== undefined) return existing.promise
     const abort = new AbortController()
@@ -149,8 +149,10 @@ export function apply(ctx: ClientContext): void {
       const skills = await fetchCatalog(session.sessionId)
       // Superseded keystroke: the shared fetch stays warm, this caller yields.
       if (signal.aborted) return []
-      return skills
-        .filter(skill => visibility.isVisible(skill.name) && skill.name.startsWith(query))
+      // The same ranking as the command group of this menu: case-insensitive
+      // ordered subsequence, prefix hits first. The chat-picker visibility
+      // choice filters first, so a hidden skill never reaches the ranking.
+      return rankByName(skills.filter(skill => visibility.isVisible(skill.name)), query)
         .map(skill => ({
           name: skill.name,
           // The user-only marker rides the description (the menu's only

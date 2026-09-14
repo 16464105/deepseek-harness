@@ -1,6 +1,6 @@
 /**
  * Models settings and product-onboarding plugin, browser half. It registers
- * the Models page plus the ordered internal-testing and provider-credential
+ * the Models page plus the ordered internal-testing and official-DeepSeek
  * onboarding dialogs, whose UI shares this package's modal wrapper. The Host
  * settings and credential contracts stay behind their existing wire APIs.
  * Export discipline:
@@ -17,8 +17,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { ModelsSection } from './ModelsSection.tsx'
 import type { ModelsSectionInjected } from './ModelsSection.tsx'
-import { ProviderOnboardingDialog } from './ProviderOnboardingDialog.tsx'
-import type { ProviderOnboardingInjected } from './ProviderOnboardingDialog.tsx'
+import { DeepSeekOnboardingDialog } from './DeepSeekOnboardingDialog.tsx'
+import type { DeepSeekOnboardingInjected } from './DeepSeekOnboardingDialog.tsx'
 import { WelcomeNotice } from './WelcomeNotice.tsx'
 import type { WelcomeNoticeInjected } from './WelcomeNotice.tsx'
 import { decodeWelcomeSection, WelcomeNoticeStore } from './welcome-store.ts'
@@ -90,7 +90,7 @@ export function apply(ctx: ClientContext): void {
     schema,
     t,
   })
-  const providerOnboardingInjected = (): ProviderOnboardingInjected => ({
+  const deepSeekOnboardingInjected = (): DeepSeekOnboardingInjected => ({
     controller,
     hooks: { models: controller.store },
     operations,
@@ -147,8 +147,8 @@ export function apply(ctx: ClientContext): void {
   }, WelcomeNotice))
   ctx.slots.inject('settings.onboarding', () => ctx.slots.register({
     name: 'settings.onboarding',
-    id: 'provider-credential',
+    id: 'deepseek-official',
     order: 0,
-    inject: providerOnboardingInjected,
-  }, ProviderOnboardingDialog))
+    inject: deepSeekOnboardingInjected,
+  }, DeepSeekOnboardingDialog))
 }
