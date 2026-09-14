@@ -33,6 +33,25 @@
     provider: tencent-internal
     model: gpt-5.6-sol
 
+# The browser tool suite drives one persistent local Chromium. This layer owns
+# the row because upstream's base and web-app bundles carry no browser row.
 - insert:
+    - id: browser
+      name: '@deepseek-ai/dsh-browser'
+
+    # The live preview overlay sits beside the tool suite: a Host RPC surface
+    # plus the `shell.overlay` occupant that renders the model-driven page.
+    - id: browser-popup
+      name: '@deepseek-ai/dsh-browser-popup'
+
+    # Persistent MCP server definitions. Each enabled row mounts one mcp-client
+    # fiber and publishes its discovered tools; the Settings page below edits
+    # the document through the manager's Remote.
+    - id: mcp-manager
+      name: '@deepseek-ai/dsh-mcp-manager'
+
+    - id: ui-settings-mcp
+      name: '@deepseek-ai/dsh-client-ui-settings-mcp'
+
     - id: llm-tencent-codebuddy
       name: '@deepseek-ai/dsh-llm-tencent-codebuddy'

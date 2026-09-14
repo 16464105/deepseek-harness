@@ -39,8 +39,11 @@
     }
   },
   "dependencies": {
+    "@deepseek-ai/dsh-browser": "workspace:^",
+    "@deepseek-ai/dsh-browser-popup": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-settings-mcp": "workspace:^",
     "@deepseek-ai/dsh-llm-tencent-codebuddy": "workspace:^",
-    "@deepseek-ai/dsh-browser-popup": "workspace:^"
+    "@deepseek-ai/dsh-mcp-manager": "workspace:^"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",

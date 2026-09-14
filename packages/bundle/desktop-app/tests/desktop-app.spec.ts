@@ -38,5 +38,12 @@ describe('desktop profile bundle', () => {
     expect(rows.get('attachment-local')?.config).toEqual({ maxImageDimension: 16_384 })
     expect(rows.get('llm-deepseek')?.disabled).not.toBe(true)
     expect(rows.get('llm-tencent-codebuddy')?.name).toBe('@deepseek-ai/dsh-llm-tencent-codebuddy')
+    // Upstream's base and web-app bundles carry no browser or MCP row, so this
+    // layer owns them; without these mounts the packaged desktop ships the
+    // plain Web surface.
+    expect(rows.get('browser')?.name).toBe('@deepseek-ai/dsh-browser')
+    expect(rows.get('browser-popup')?.name).toBe('@deepseek-ai/dsh-browser-popup')
+    expect(rows.get('mcp-manager')?.name).toBe('@deepseek-ai/dsh-mcp-manager')
+    expect(rows.get('ui-settings-mcp')?.name).toBe('@deepseek-ai/dsh-client-ui-settings-mcp')
   })
 })

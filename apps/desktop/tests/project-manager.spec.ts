@@ -398,9 +398,12 @@ describe('desktop project transactions', () => {
     const profile = JSON.parse(readFileSync(join(paths.profile, 'package.json'), 'utf8')) as {
       dsh: { profile: { bundles: string[] } }
     }
+    // The built-in prefix carries the desktop application layer, so a user
+    // plugin follows three built-in bundles rather than two.
     expect(profile.dsh.profile.bundles).toEqual([
       '@deepseek-ai/dsh-base',
       '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-desktop-app',
       '@scope/plugin',
     ])
     expect(readFileSync(join(paths.pnpm.store, 'release-1'), 'utf8')).toBe('one')

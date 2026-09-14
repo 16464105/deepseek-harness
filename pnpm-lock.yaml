@@ -780,6 +780,9 @@ importers:
       '@deepseek-ai/dsh-cmdline':
         specifier: workspace:^
         version: link:../../packages/boot/cmdline
+      '@deepseek-ai/dsh-desktop-app':
+        specifier: workspace:^
+        version: link:../../packages/bundle/desktop-app
       '@deepseek-ai/dsh-host-directory-picker-native':
         specifier: workspace:^
         version: link:../../packages/host/directory-picker-native
@@ -1869,12 +1872,21 @@ importers:
 
   packages/bundle/desktop-app:
     dependencies:
+      '@deepseek-ai/dsh-browser':
+        specifier: workspace:^
+        version: link:../../browser/browser
       '@deepseek-ai/dsh-browser-popup':
         specifier: workspace:^
         version: link:../../browser/browser-popup
+      '@deepseek-ai/dsh-client-ui-settings-mcp':
+        specifier: workspace:^
+        version: link:../../client/ui-settings-mcp
       '@deepseek-ai/dsh-llm-tencent-codebuddy':
         specifier: workspace:^
         version: link:../../llm/llm-tencent-codebuddy
+      '@deepseek-ai/dsh-mcp-manager':
+        specifier: workspace:^
+        version: link:../../mcp/mcp-manager
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:^
