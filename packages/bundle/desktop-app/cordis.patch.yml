@@ -53,5 +53,12 @@
     - id: ui-settings-mcp
       name: '@deepseek-ai/dsh-client-ui-settings-mcp'
 
+    # This deployment's own whale mark and product name. The official occupant
+    # registers at the default priority; this one registers below it and wins
+    # the single-slot election, so upstream artwork and the shared locale
+    # dictionaries stay untouched.
+    - id: ui-brand-desktop
+      name: '@deepseek-ai/dsh-client-ui-brand-desktop'
+
     - id: llm-tencent-codebuddy
       name: '@deepseek-ai/dsh-llm-tencent-codebuddy'

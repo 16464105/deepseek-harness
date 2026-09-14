@@ -55,6 +55,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/code-runtime/code-runtime-worker-thread': { kind: 'indirect', reason: 'The worker backend delegates model rendering to PTC mode in dsh-tools.' },
   'packages/experimental/code-runtime-python': { kind: 'indirect', reason: 'Explicit source-checkout compositions delegate model rendering to PTC mode in dsh-tools.' },
   'packages/client/ui-agent-preset': { kind: 'indirect', reason: 'Browser-side settings row; the preset it selects owns every model-facing effect.' },
+  'packages/client/ui-brand-desktop': { kind: 'indirect', reason: 'Browser-side brand occupant; it renders sidebar artwork and registers no prompt, schema, or result.' },
   'packages/client/ui-settings-mcp': { kind: 'indirect', reason: 'Browser-side MCP settings layer; each enabled server definition mounts a child mcp-client whose discovered tools own every model-facing effect.' },
   'packages/mcp/mcp-manager': { kind: 'indirect', reason: 'The manager owns persisted server definitions and management controls; each enabled child mcp-client fiber registers and renders its own discovered tools.' },
   'packages/util/crypto': { kind: 'indirect', reason: 'Pure identifier minting; the ids consumers mint with it never enter prompts as semantic content.' },

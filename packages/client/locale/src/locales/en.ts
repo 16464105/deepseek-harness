@@ -30,7 +30,7 @@ export const en = {
   'collapse': 'Collapse',
   'expand': 'Expand',
   'back': 'Back',
-  'brand.localBuild': 'DeepseekHarness',
+  'brand.localBuild': 'DSH Local Build',
   'unknown': 'Unknown',
   'none': 'None',
   'truncated': 'Truncated',
