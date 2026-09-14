@@ -34,6 +34,14 @@ jobs:
       # keychain step below, so they cannot drift from it. CSC_* is
       # electron-builder's own import of that same certificate.
       DSH_DESKTOP_APP_ID: ${{ vars.DESKTOP_APP_ID || 'com.deepseek.harness' }}
+      # This fork ships its own desktop build, so electron-updater must not
+      # follow the upstream release stream: installing an upstream release
+      # would replace the packaged seed and drop every fork-only package.
+      # Point the updater at a deployment-owned origin that serves nothing
+      # today; the check fails silently and no upstream build is ever
+      # offered. Set the DESKTOP_UPDATE_ORIGIN repository variable once an
+      # internal update feed exists.
+      DOWNLOAD_TEST_ORIGIN: ${{ vars.DESKTOP_UPDATE_ORIGIN || 'https://desktop-updates.internal.invalid' }}
       CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
