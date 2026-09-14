@@ -1,5 +1,7 @@
+import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
@@ -75,6 +77,10 @@ describe('SessionSkillCatalog', () => {
         whenToUse: 'Before publishing.',
         modelInvocable: true,
       }],
+      // The surface also reports where user skills live and whether this host
+      // can reveal that directory.
+      openDirectory: join(resolveDshHome(), 'skills'),
+      canOpenPath: expect.any(Boolean),
     })
     expect(observeSession).toHaveBeenCalledWith(sessionId)
     expect(dispose).toHaveBeenCalledOnce()
@@ -110,6 +116,8 @@ describe('SessionSkillCatalog', () => {
         description: 'Composed for this Agent.',
         modelInvocable: false,
       }],
+      openDirectory: join(resolveDshHome(), 'skills'),
+      canOpenPath: expect.any(Boolean),
     })
     expect(scopedList).toHaveBeenCalledWith({ cwd: '/live/project', scope: agent })
     expect(standingKeyFor).not.toHaveBeenCalled()
@@ -131,7 +139,7 @@ describe('SessionSkillCatalog', () => {
     ctx.provide('skills', { list } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
-    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
+    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toMatchObject({ skills: [] })
     expect(standingKeyFor).toHaveBeenCalledWith('minimal')
     expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope })
     expect(ctx.agents.list()).toEqual([])
@@ -153,7 +161,7 @@ describe('SessionSkillCatalog', () => {
     ctx.provide('skills', { list } as never)
     const catalog = new SessionSkillCatalog(ctx)
 
-    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toEqual({ skills: [] })
+    await expect(catalog.list({ sessionId }, new AbortController().signal)).resolves.toMatchObject({ skills: [] })
     expect(list).toHaveBeenCalledWith({ cwd: '/cold/project', scope: undefined })
   })
 

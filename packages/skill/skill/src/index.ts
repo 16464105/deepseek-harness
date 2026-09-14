@@ -118,6 +118,12 @@ export interface SkillLookupOptions {
 export interface SkillViewOptions extends SkillLookupOptions {
   /** Viewing scope (the calling agent); omitted reads the global layer alone. */
   readonly scope?: ScopeKey | undefined
+  /**
+   * Re-read every provider instead of serving a cached observation. An
+   * explicit refresh gesture sets it, where a person expects a just-added
+   * file to appear; ordinary reads keep the cache.
+   */
+  readonly refresh?: boolean | undefined
 }
 
 /**
@@ -527,7 +533,7 @@ export class SkillRegistry extends Service {
       // recompose re-parents an existing scope without touching this registry,
       // and only a chain-bearing key makes the next read see the new preset.
       const key = this.collectCacheKey(options.cwd, scopeChainOf(options.scope), revision)
-      const cached = this.collectCache.get(key)
+      const cached = options.refresh === true ? undefined : this.collectCache.get(key)
       if (cached !== undefined) return { entries: cached, cacheable: true }
 
       const result = await this.collectFresh(options)
@@ -644,15 +650,6 @@ export class SkillRegistry extends Service {
 
   private collectCacheKey(cwd: string | undefined, chain: ScopeKey[], revision: number): string {
     return JSON.stringify({ cwd, scopes: chain.map(key => this.scopeId(key)), revision })
-  }
-
-  /**
-   * Drop every cached catalog observation so the next `list()` re-reads each
-   * provider. The Skills settings page calls this for its explicit refresh
-   * gesture, where a person expects a just-added file to appear.
-   */
-  refresh(): void {
-    this.invalidateCache()
   }
 
   /** Notify catalog observers without making their refresh work load-bearing. */

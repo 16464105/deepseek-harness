@@ -78,8 +78,11 @@ export class SessionSkillCatalog extends TypertRemoteService {
 
     const scope = await this.scopeFor(sessionId, agentPreset)
     try {
-      if (request.refresh === true) skillRegistry.refresh()
-      const skills = (await skillRegistry.list({ cwd, scope })).filter(isUserInvocable)
+      const skills = (await skillRegistry.list({
+        cwd,
+        scope,
+        ...request.refresh === true ? { refresh: true } : {},
+      })).filter(isUserInvocable)
       // The user skills directory a person installs skills into. The same
       // single harness-home root the settings document uses, and the root
       // `dsh-skill-filesystem` scans as `user-dsh` — so the directory the
