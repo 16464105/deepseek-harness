@@ -28,6 +28,12 @@ jobs:
             runner: macos-15-intel
     env:
       TARGET_ARCH: ${{ matrix.arch }}
+      # The packaging scripts read their public release identifiers from
+      # DSH_DESKTOP_* names. The app id is a public constant; the signing
+      # identity and team id are derived from the imported certificate in the
+      # keychain step below, so they cannot drift from it. CSC_* is
+      # electron-builder's own import of that same certificate.
+      DSH_DESKTOP_APP_ID: ${{ vars.DESKTOP_APP_ID || 'com.deepseek.harness' }}
       CSC_LINK: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -54,6 +60,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # DSH_DESKTOP_MACOS_SIGNING_IDENTITY and DSH_DESKTOP_MACOS_TEAM_ID are
+          # derived from the imported certificate, so only the inputs below are
+          # required here.
           for variable in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
             if [[ -z "${!variable:-}" ]]; then
               echo "::error::Required GitHub Actions secret for ${variable} is missing."
@@ -64,6 +73,56 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Import the signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          # prepare:seed codesigns the packaged pnpm store before
+          # electron-builder runs, so the Developer ID certificate must be in
+          # the keychain before the packaging command starts. The packaging
+          # scripts read the identity and team from DSH_DESKTOP_* names; both
+          # are derived from the imported certificate so no separate secret
+          # can drift from the certificate actually used.
+          keychain="${RUNNER_TEMP}/dsh-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 24)"
+          echo "${CSC_LINK}" | base64 --decode > "${RUNNER_TEMP}/signing.p12"
+          security create-keychain -p "${keychain_password}" "${keychain}"
+          security set-keychain-settings -lut 21600 "${keychain}"
+          security unlock-keychain -p "${keychain_password}" "${keychain}"
+          security import "${RUNNER_TEMP}/signing.p12" -k "${keychain}" \
+            -P "${CSC_KEY_PASSWORD}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${keychain_password}" "${keychain}" > /dev/null
+          security list-keychains -d user -s "${keychain}" login.keychain-db
+          rm -f "${RUNNER_TEMP}/signing.p12"
+
+          # `codesign --sign` takes the certificate's common name without the
+          # "Developer ID Application: " prefix; the packaging scripts reject
+          # that prefix when it is present.
+          identity="$(security find-identity -v -p codesigning "${keychain}" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -n 1)"
+          if [[ -z "${identity}" ]]; then
+            echo "::error::The imported certificate carries no Developer ID Application identity."
+            exit 1
+          fi
+          identity="${identity#Developer ID Application: }"
+
+          # The Team ID is the certificate subject's OU component.
+          team_id="$(security find-certificate -c "${identity}" -p "${keychain}" \
+            | openssl x509 -noout -subject \
+            | sed -n 's/.*OU *= *\([A-Z0-9]*\).*/\1/p' | head -n 1)"
+          if [[ ! "${team_id}" =~ ^[A-Z0-9]{10}$ ]]; then
+            echo "::error::Could not read a 10-character Team ID from the certificate subject."
+            exit 1
+          fi
+
+          {
+            echo "DSH_DESKTOP_MACOS_SIGNING_IDENTITY=${identity}"
+            echo "DSH_DESKTOP_MACOS_TEAM_ID=${team_id}"
+          } >> "${GITHUB_ENV}"
+          echo "Signing as ${identity} (team ${team_id})"
+          security find-identity -v -p codesigning "${keychain}"
+
       - name: Build and verify runtime closure
         run: |
           pnpm run build
@@ -72,27 +131,25 @@ jobs:
       - name: Package architecture-specific DMG
         run: pnpm --filter @deepseek-ai/dsh-desktop run "package:mac:${TARGET_ARCH}"
 
-      - name: Notarize, staple, and verify DMG
+      - name: Verify the signed and notarized DMG
         id: verify
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          dmgs=(apps/desktop/dist/*-mac-"${TARGET_ARCH}".dmg)
+          # electron-builder writes under the target's build root and notarizes
+          # the disk image through the repository's own afterSign hook.
+          artifacts="apps/desktop/.desktop-build/targets/mac-${TARGET_ARCH}/artifacts"
+          dmgs=("${artifacts}"/*-mac-"${TARGET_ARCH}".dmg)
           if [[ ${#dmgs[@]} -ne 1 ]]; then
-            echo "::error::Expected one ${TARGET_ARCH} DMG, found ${#dmgs[@]}."
+            echo "::error::Expected one ${TARGET_ARCH} DMG in ${artifacts}, found ${#dmgs[@]}."
             exit 1
           fi
           dmg="${dmgs[0]}"
 
-          xcrun notarytool submit "${dmg}" \
-            --apple-id "${APPLE_ID}" \
-            --password "${APPLE_APP_SPECIFIC_PASSWORD}" \
-            --team-id "${APPLE_TEAM_ID}" \
-            --wait
-          xcrun stapler staple "${dmg}"
+          # The packaging hook notarized and stapled this image; verify that
+          # result rather than submitting it a second time.
           xcrun stapler validate "${dmg}"
-          codesign --verify --strict --verbose=2 "${dmg}"
           spctl --assess --type open --context context:primary-signature --verbose=4 "${dmg}"
 
           mount_dir="${RUNNER_TEMP}/deepseek-harness-${TARGET_ARCH}"
