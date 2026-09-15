@@ -42,9 +42,9 @@ export const inject = ['llm']
 
 /** Provider route exposed to Harness model selectors. */
 export const TENCENT_CODEBUDDY_PROVIDER = 'tencent-internal'
-/** Default Tencent internal model selected by the desktop profile. */
-export const TENCENT_CODEBUDDY_MODEL = 'gpt-5.6-sol'
-/** Credential reference written by the desktop Models onboarding flow. */
+/** Default Tencent internal model selected by this bundle's profile patch. */
+export const TENCENT_CODEBUDDY_MODEL = 'hy3-ioa'
+/** Credential reference written by the Models page for this route. */
 export const TENCENT_CODEBUDDY_API_KEY = 'TENCENT_CODEBUDDY_API_KEY'
 
 const NS = 'llm-tencent-codebuddy'

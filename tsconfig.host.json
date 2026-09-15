@@ -346,7 +346,7 @@
     { "path": "./packages/mcp/mcp-client" },
     { "path": "./packages/skill/skill-directory" },
     { "path": "./packages/mcp/mcp-manager" },
-    { "path": "./packages/llm/llm-tencent-codebuddy" },
+    { "path": "./packages/tencent-internal/llm-tencent-codebuddy" },
     { "path": "./packages/bundle/desktop-app" },
     { "path": "./packages/host/directory-picker" },
     { "path": "./packages/host/directory-picker-auto" },

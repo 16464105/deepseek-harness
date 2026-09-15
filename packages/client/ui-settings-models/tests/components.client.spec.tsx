@@ -80,6 +80,40 @@ const DeepSeekConfig = Schema.object({
   ]),
 })
 
+const TencentConfig = Schema.object({
+  apiKeyEnv: Schema.string().role('credential-ref'),
+  models: Schema.array(Schema.object({
+    id: Schema.string().required(),
+    name: Schema.string(),
+    contextWindow: Schema.number().step(1).min(1),
+    maxTokens: Schema.number().step(1).min(1),
+  })).default([
+    { id: 'hy3-ioa', name: 'Hy3', contextWindow: 192_000, maxTokens: 64_000 },
+    { id: 'auto', name: 'Auto', contextWindow: 192_000, maxTokens: 64_000 },
+  ]),
+})
+
+const DEFAULT_TENCENT_MODELS = [
+  { id: 'hy3-ioa', name: 'Hy3', contextWindow: 192_000, maxTokens: 64_000 },
+  { id: 'auto', name: 'Auto', contextWindow: 192_000, maxTokens: 64_000 },
+]
+
+function tencentNamespace(): SettingsNamespaceView {
+  return {
+    ns: 'llm-tencent-codebuddy',
+    schema: JSON.parse(JSON.stringify(TencentConfig.toJSON())) as JsonValue,
+    value: {
+      apiKeyEnv: 'TENCENT_CODEBUDDY_API_KEY',
+      models: DEFAULT_TENCENT_MODELS,
+    },
+    base: { models: DEFAULT_TENCENT_MODELS },
+    user: {},
+    applies: 'live',
+    secrets: [],
+    revision: 0,
+  }
+}
+
 const DEFAULT_DEEPSEEK_MODELS = [
   {
     id: 'deepseek-v4-flash',
@@ -1188,6 +1222,38 @@ describe('ModelsSection', () => {
     // The hint-only card cannot apply anything, and offers no key field.
     expect(screen.getByText<HTMLButtonElement>(en.apply).disabled).toBe(true)
     expect(screen.queryAllByLabelText(en.keyInput)).toHaveLength(0)
+  })
+
+  it('curates Tencent CodeBuddy as an API-key and catalog editor', async () => {
+    // An unknown namespace only shows the yaml hint and disables Apply; this
+    // adapter must keep the same catalog editor DeepSeek uses, without a
+    // Base URL field the package endpoint does not accept.
+    const { face } = scriptedFace()
+    const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
+    render(<ProviderEditor
+      provider="tencent-internal"
+      displayName="Tencent CodeBuddy"
+      namespace={tencentNamespace()}
+      schema={settingsSchema}
+      settingsPath={[]}
+      operations={operationsWith(face)}
+      t={t}
+      readOnly={false}
+      onClose={() => {}}
+    />)
+    expect(screen.getByLabelText(en.keyInput)).toBeTruthy()
+    expect(screen.queryByText(content =>
+      typeof content === 'string' && content.includes(en.advancedHint))).toBeNull()
+    expect(screen.getByText<HTMLButtonElement>(en.apply).disabled).toBe(false)
+
+    fireEvent.click(screen.getByText(en.customized))
+    expect(screen.queryByLabelText(en.baseUrl)).toBeNull()
+    expect(screen.getByText(en.models)).toBeTruthy()
+    expect(screen.getByText(en.modelsInherited)).toBeTruthy()
+    expect(screen.getAllByLabelText(new RegExp(en.modelId)).map(input => (input as HTMLInputElement).value))
+      .toEqual(['hy3-ioa', 'auto'])
+    expect(screen.getAllByLabelText(new RegExp(en.modelName)).map(input => (input as HTMLInputElement).value))
+      .toEqual(['Hy3', 'Auto'])
   })
 
   it('surfaces a rejected settings write and never stores the key after it', async () => {

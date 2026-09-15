@@ -36,6 +36,7 @@ Every package lives in exactly one group; new packages join existing groups, and
 | [`feedback/`](feedback/README.md) | Human feedback capture and command |
 | [`identity/`](identity/README.md) | Shared anonymous identity |
 | [`llm/`](llm/README.md) | LLM capability family: abstract service + provider adapters |
+| [`tencent-internal/`](tencent-internal/README.md) | Installable Tencent CodeBuddy profile bundle |
 | [`e2b/`](e2b/README.md) | E2B remote-runtime providers |
 | [`subprocess/`](subprocess/README.md) | Subprocess capability family: Service Definition + local process-tree provider |
 | [`shell/`](shell/README.md) | Bash capability family: executor seam, local impl, model-facing tools |

@@ -27,7 +27,7 @@ fork 行为的外部化分两层推进，因为两层的前提条件不同。
 
 八项第一层工作已经落地。`packages/api/remotes` 重新与上游一致：browser popup 与 MCP 设置页各自通过 `ctx.remote.$mount` 挂载自己生成的 Remote contribution（agent-team 客户端使用的模式），因此共享装配不再命名任何一个命名空间。图片上限已移入组合。桌面层挂载 browser、popup、MCP manager 与 MCP 设置这些行，因为上游的 base 与 web-app bundle 完全不含 browser 或 MCP 行——缺少这些行时，打包版本会启动成纯 Web 界面。onboarding 目标成为 `preferredProvider` 配置字段。品牌图形移入 `dsh-client-ui-brand-desktop`，它以更低的槽位优先级遮蔽官方占位者；回退 `FishLogo` 同时恢复了首屏的游动动画，因为它的形变目标是在上游坐标系中生成的。Skills 管理页与用户 skill 目录各自移入独立包（`dsh-client-ui-settings-skill` 与 `dsh-skill-directory`），使 `ui-skill` 只负责聊天选择器。`ui-primitives` 与 `client/locale` 重新与上游一致，模型席位宿主侧的图片需求管线被移除，因为从未有代码设置它——草稿自身的附件一直是唯一有效信号。
 
-这七个桌面专有包可发布，且已位于上游目录树之外，因此一旦它们所补丁的包暴露上述扩展点，就能安装进上游 profile。
+这七个桌面专有包可发布，且已位于上游目录树之外，因此一旦它们所补丁的包暴露上述扩展点，就能安装进上游 profile。`@deepseek-ai/dsh-llm-tencent-codebuddy` 已经声明 `dsh.bundle.patch`，因此 CLI profile 可以用 `dsh plugin` 添加腾讯路由，不必等待那些尚未落地的扩展点（[可安装组合包笔记](../architecture/2026-09-15-tencent-codebuddy-installable-profile-bundle.zh.md)）。
 
 ## 考虑过的替代方案
 

@@ -34,4 +34,4 @@ schema 漂移的投影缓存行不再拒绝 Host 启动；该会话会失去列�
 
 ## Verification
 
-`packages/storage/storage-domain/tests/domain.spec.ts` 打开一个同时持有一行有效记录与一行 schema 不符记录的 `per-record` 领域，提供有效行、省略不符行，并仍然拒绝 schema 不符的全局。同一文件保留 `single` 布局的 `invalid-record` 拒绝。`packages/llm/llm-pi-ai/tests/adapter.spec.ts` 断言包根再导出。`packages/llm/llm-tencent-codebuddy/tests/provider-wiring.spec.ts` 拒绝从 `src/` 导入 `dsh-llm-pi-ai`。`packages/settings/settings/tests/settings.spec.ts` 通过 `settingsNamespace` 为合法 namespace 品牌化并拒绝非法名称。
+`packages/storage/storage-domain/tests/domain.spec.ts` 打开一个同时持有一行有效记录与一行 schema 不符记录的 `per-record` 领域，提供有效行、省略不符行，并仍然拒绝 schema 不符的全局。同一文件保留 `single` 布局的 `invalid-record` 拒绝。`packages/llm/llm-pi-ai/tests/adapter.spec.ts` 断言包根再导出。`packages/tencent-internal/llm-tencent-codebuddy/tests/provider-wiring.spec.ts` 拒绝从 `src/` 导入 `dsh-llm-pi-ai`。`packages/settings/settings/tests/settings.spec.ts` 通过 `settingsNamespace` 为合法 namespace 品牌化并拒绝非法名称。

@@ -31,13 +31,7 @@
 - id: agent-default-model
   config:
     provider: tencent-internal
-    model: gpt-5.6-sol
-
-# A first-run user is onboarded into this deployment's own route, so the
-# onboarding step offers the CodeBuddy key field rather than the official one.
-- id: ui-settings-models
-  config:
-    preferredProvider: tencent-internal
+    model: hy3-ioa
 
 # The browser tool suite drives one persistent local Chromium. This layer owns
 # the row because upstream's base and web-app bundles carry no browser row.
